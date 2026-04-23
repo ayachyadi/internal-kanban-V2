@@ -22,6 +22,7 @@
             
             <a href="profile.html" class="nav-profile-link">
                 <img id="navProfileIcon" src="" alt="Profil">
+                <span id="notifBadge" class="notif-badge" style="display: none;"></span>
             </a>
         </div>
     </nav>
@@ -55,6 +56,24 @@
                 </form>
             </div>
 
+<div style="display: flex; flex-direction: column; gap: 24px;">
+                
+                <div class="history-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; margin: 0;">Notifikasi Belum Dibaca</h3>
+                        <button onclick="tandaiSemuaDibaca()" style="background: none; border: none; color: #282828; font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: underline;">Tandai semua dibaca</button>
+                    </div>
+                    <div class="history-list" id="userNotifList">
+                        <p style="color:gray; font-size:13px;">Belum ada notifikasi.</p>
+                    </div>
+                </div>
+
+                <div class="history-card">
+                    <h3 style="font-size: 16px; margin-bottom: 20px; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px;">Riwayat Aktivitas Anda</h3>
+                    <div class="history-list" id="userHistoryList"></div>
+                </div>
+            </div>
+            
             <div class="history-card">
                 <h3 style="font-size: 16px; margin-bottom: 20px; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px;">Riwayat Aktivitas Anda</h3>
                 
