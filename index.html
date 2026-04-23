@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprout - Task Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <h2>Sprout <span>Task Tracker</span></h2>
+        <div class="nav-links">
+            <a href="index.html" class="active">Papan Kanban</a>
+            <a href="log.html">Log Aktivitas</a>
+            <a href="report.html">Laporan</a>
+            <a href="tentang.html">Tentang</a>
+            
+            <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 16px 0 32px;"></div>
+            
+            <button onclick="prosesLogout()" style="margin-left: 0;">Keluar</button>
+            
+            <a href="profile.html" class="nav-profile-link">
+                <img id="navProfileIcon" src="" alt="Profil">
+            </a>
+        </div>
+    </nav>
+
+    <main class="board-container">
+        <div class="board-controls">
+            <span class="control-label">Urutkan berdasarkan:</span>
+            <select id="sortSelect" class="sprout-select" onchange="renderPapanKanban()">
+                <option value="default">Terbaru Ditambahkan</option>
+                <option value="dueDate">Tenggat Waktu</option>
+                <option value="category">Kategori</option>
+            </select>
+        </div>
+
+        <div class="board">
+            <div class="column" ondrop="drop(event, 'todo')" ondragover="allowDrop(event)">
+                <h3>To-Do</h3>
+                <button class="add-btn" onclick="bukaModalTambah('todo')">+ Tambah Tugas</button>
+                <div class="task-list" id="list-todo"></div>
+            </div>
+
+            <div class="column" ondrop="drop(event, 'doing')" ondragover="allowDrop(event)">
+                <h3>Doing</h3>
+                <div class="task-list" id="list-doing"></div>
+            </div>
+
+            <div class="column" ondrop="drop(event, 'review')" ondragover="allowDrop(event)">
+                <h3>Review</h3>
+                <div class="task-list" id="list-review"></div>
+            </div>
+
+            <div class="column" ondrop="drop(event, 'done')" ondragover="allowDrop(event)">
+                <h3>Done</h3>
+                <div class="task-list" id="list-done"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="cardModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close-btn" onclick="tutupModal()">&times;</span>
+            <h2 id="modalHeader">Tambah Tugas Baru</h2>
+            
+            <form id="taskForm" onsubmit="simpanTugas(event)">
+                
+                <div class="input-group">
+                    <label>Judul Tugas</label>
+                    <input type="text" id="inputTitle" required>
+                </div>
+
+                <div class="input-group-row">
+                    <div class="input-group">
+                        <label>Kategori</label>
+                        <select id="inputCategory" class="sprout-select">
+                            <option value="UI/UX Design">UI/UX Design</option>
+                            <option value="Frontend">Frontend</option>
+                            <option value="Backend">Backend</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Tenggat Waktu</label>
+                        <input type="date" id="inputDue">
+                    </div>
+                    <div class="input-group" style="position: relative;">
+                        <label>PIC (Bisa lebih dari satu)</label>
+                        <div class="multi-select-container" onclick="document.getElementById('inputPerson').focus()">
+                            <div id="selectedPics" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+                            <input type="text" id="inputPerson" autocomplete="off" placeholder="Ketik nama PIC...">
+                        </div>
+                        <div id="picSuggestions" class="suggestions-box" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Deskripsi Detail</label>
+                    <div class="rich-text-toolbar">
+                        <button type="button" onclick="formatText('bold')"><b>B</b></button>
+                        <button type="button" onclick="formatText('italic')"><i>I</i></button>
+                        <button type="button" onclick="formatText('underline')"><u>U</u></button>
+                        <button type="button" onclick="tambahLink()">Link</button>
+                        <button type="button" onclick="tambahGambar()">Gambar</button>
+                    </div>
+                    <div id="inputDesc" class="rich-text-editor" contenteditable="true" placeholder="Tulis deskripsi tugas di sini..."></div>
+                </div>
+
+                <div class="checklist-box">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="inputDoneCheck">
+                        <span class="checkmark"></span>
+                        Tandai Selesai (Otomatis pindah ke Review)
+                    </label>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" id="btnDelete" class="delete-btn" onclick="hapusTugas()" style="display: none;">Hapus</button>
+                    <button type="submit" class="save-btn">Simpan Perubahan</button>
+                </div>
+            </form>
+
+            <div id="commentSection" class="comments-section" style="display: none;">
+                <h3>Komentar Tim</h3>
+                <div class="comments-list" id="commentsList">
+                    </div>
+                <div class="add-comment-box">
+                    <input type="text" id="inputComment" placeholder="Tambahkan komentar...">
+                    <button type="button" onclick="simpanKomentar()">Kirim</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tentang Sistem - Task Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <h2>Sprout <span>Task Tracker</span></h2>
+        <div class="nav-links">
+            <a href="index.html">Papan Kanban</a>
+            <a href="log.html">Log Aktivitas</a>
+            <a href="report.html">Laporan</a>
+            <a href="tentang.html" class="active">Tentang</a>
+            
+            <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 16px 0 32px;"></div>
+            
+            <button onclick="prosesLogout()" style="margin-left: 0;">Keluar</button>
+            
+            <a href="profile.html" class="nav-profile-link">
+                <img id="navProfileIcon" src="" alt="Profil">
+            </a>
+        </div>
+    </nav>
+
+    <main class="content-page">
+        <h1>Tentang Sistem Ini</h1>
+        <p>Sistem ini adalah Minimum Viable Product (MVP) untuk penggunaan internal.</p>
+        <p>Dibuat menggunakan HTML, CSS, dan JavaScript murni dengan Firebase Authentication.</p>
+    </main>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>

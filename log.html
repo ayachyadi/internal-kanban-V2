@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Aktivitas - Task Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <h2>Sprout <span>Task Tracker</span></h2>
+        <div class="nav-links">
+            <a href="index.html">Papan Kanban</a>
+            <a href="log.html" class="active">Log Aktivitas</a>
+            <a href="report.html">Laporan</a>
+            <a href="tentang.html">Tentang</a>
+            
+            <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 16px 0 32px;"></div>
+            
+            <button onclick="prosesLogout()" style="margin-left: 0;">Keluar</button>
+            
+            <a href="profile.html" class="nav-profile-link">
+                <img id="navProfileIcon" src="" alt="Profil">
+            </a>
+        </div>
+    </nav>
+
+    <main class="content-page">
+        <h1>Riwayat Aktivitas Sistem</h1>
+        <button onclick="bersihkanLog()" style="margin-bottom: 15px; padding: 8px; background: #dfe1e6; border: none; border-radius: 4px; cursor: pointer;">Bersihkan Log</button>
+        
+        <table class="log-table">
+            <thead>
+                <tr>
+                    <th>Waktu</th>
+                    <th>Pengguna</th>
+                    <th>Aksi</th>
+                    <th>Tugas</th>
+                </tr>
+            </thead>
+            <tbody id="logTableBody">
+                </tbody>
+        </table>
+    </main>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>

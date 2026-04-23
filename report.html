@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan - Sprout Task Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <h2>Sprout <span>Task Tracker</span></h2>
+        <div class="nav-links">
+            <a href="index.html">Papan Kanban</a>
+            <a href="log.html">Log Aktivitas</a>
+            <a href="report.html" class="active">Laporan</a>
+            <a href="tentang.html">Tentang</a>
+            
+            <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 16px 0 32px;"></div>
+            
+            <button onclick="prosesLogout()" style="margin-left: 0;">Keluar</button>
+            
+            <a href="profile.html" class="nav-profile-link">
+                <img id="navProfileIcon" src="" alt="Profil">
+            </a>
+        </div>
+    </nav>
+
+    <main class="content-page">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px;">
+            <div>
+                <h1>Laporan Kinerja</h1>
+                <p style="color: rgba(40,40,40,0.55); font-size: 14px;">Ringkasan tugas berdasarkan waktu pembuatan.</p>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+                <select id="filterWaktu" class="sprout-select" onchange="renderLaporan()">
+                    <option value="all">Semua Waktu</option>
+                    <option value="week">7 Hari Terakhir</option>
+                    <option value="month">Bulan Ini</option>
+                    <option value="year">Tahun Ini</option>
+                </select>
+                <button onclick="downloadReportHTML()" class="save-btn" style="background-color: #CCFA59; color: #282828;">Unduh Laporan (HTML)</button>
+            </div>
+        </div>
+
+        <div class="story-stats" style="margin-bottom: 40px;">
+            <div class="stat-card stat-dark">
+                <div class="stat-num stat-num-dark" id="countSelesai">0</div>
+                <div class="stat-label stat-label-dark">Tugas Selesai</div>
+                <div class="stat-desc stat-desc-dark">Done & Review</div>
+            </div>
+            <div class="stat-card stat-white">
+                <div class="stat-num stat-num-white" id="countPending">0</div>
+                <div class="stat-label stat-label-white">Pending</div>
+                <div class="stat-desc stat-desc-white">Sedang dikerjakan (Doing)</div>
+            </div>
+            <div class="stat-card stat-white" style="border: 1px solid rgba(226,59,59,0.2);">
+                <div class="stat-num stat-num-white" id="countBacklog">0</div>
+                <div class="stat-label stat-label-white" style="color: #E23B3B;">Backlog</div>
+                <div class="stat-desc stat-desc-white">Belum disentuh (To-Do)</div>
+            </div>
+        </div>
+
+        <h3 style="font-size: 16px; margin-bottom: 24px;">Tingkat Penyelesaian per Kategori</h3>
+        <div id="categoryChart" style="background: transparent; padding-right: 20px;">
+            </div>
+    </main>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>

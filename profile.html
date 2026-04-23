@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profil - Sprout Task Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <h2>Sprout <span>Task Tracker</span></h2>
+        <div class="nav-links">
+            <a href="index.html">Papan Kanban</a>
+            <a href="log.html">Log Aktivitas</a>
+            <a href="report.html">Laporan</a>
+            <a href="tentang.html">Tentang</a>
+            
+            <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 16px 0 32px;"></div>
+            
+            <button onclick="prosesLogout()" style="margin-left: 0;">Keluar</button>
+            
+            <a href="profile.html" class="nav-profile-link">
+                <img id="navProfileIcon" src="" alt="Profil">
+            </a>
+        </div>
+    </nav>
+
+    <main class="content-page">
+        <h1 style="margin-bottom: 32px; font-size: 32px; letter-spacing: -1px;">Pengaturan Profil</h1>
+
+        <div class="profile-wrapper">
+            <div class="profile-card">
+                <form id="formProfil" onsubmit="simpanProfil(event)">
+                    <div class="avatar-section">
+                        <div class="avatar-wrapper">
+                            <img id="avatarPreview" src="https://ui-avatars.com/api/?name=User&background=282828&color=CCFA59&size=150" alt="Profile Picture">
+                        </div>
+                        <label for="uploadAvatar" class="upload-btn">Ganti Foto</label>
+                        <input type="file" id="uploadAvatar" accept="image/*" style="display: none;" onchange="gantiAvatar(event)">
+                    </div>
+
+                    <div class="input-group" style="text-align: left; margin-top: 24px;">
+                        <label>Nama Lengkap</label>
+                        <input type="text" id="inputNamaProfil" placeholder="Masukkan nama Anda..." required>
+                    </div>
+
+                    <div class="input-group" style="text-align: left;">
+                        <label>Email (ID)</label>
+                        <input type="email" id="inputEmailProfil" disabled style="background-color: #EFEFEF; color: #888; cursor: not-allowed;">
+                        <p style="font-size: 11px; color: gray; margin-top: 4px;">Email terhubung dengan Firebase Auth.</p>
+                    </div>
+
+                    <button type="submit" class="save-btn" style="width: 100%; margin-top: 16px;">Simpan Profil</button>
+                </form>
+            </div>
+
+            <div class="history-card">
+                <h3 style="font-size: 16px; margin-bottom: 20px; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px;">Riwayat Aktivitas Anda</h3>
+                
+                <div class="history-list" id="userHistoryList">
+                    <p style="color:gray; font-size:13px;">Memuat riwayat...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
