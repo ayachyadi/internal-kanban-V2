@@ -1107,3 +1107,48 @@ body {
     border-left: 3px solid #CCFA59;
     padding-left: 13px; /* Mengimbangi border agar teks tidak geser */
 }
+
+/* =========================================
+   GAYA SISTEM NOTIFIKASI
+========================================= */
+.notif-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background-color: #E23B3B; /* Merah Alert Sprout */
+    border: 2px solid #282828; /* Outline hitam pekat */
+    border-radius: 50%;
+    animation: pulseNotif 2s infinite;
+}
+
+@keyframes pulseNotif {
+    0% { box-shadow: 0 0 0 0 rgba(226, 59, 59, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(226, 59, 59, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(226, 59, 59, 0); }
+}
+
+.notif-item {
+    padding: 14px 16px;
+    background: #FFFFFF;
+    border: 1px solid rgba(40,40,40,0.1);
+    border-left: 4px solid #E23B3B; /* Tanda merah belum dibaca */
+    border-radius: 8px;
+    font-size: 13px;
+    color: #282828;
+    line-height: 1.5;
+}
+
+.notif-item.read {
+    border-left-color: #CCFA59; /* Hijau Sprout jika sudah dibaca */
+    background: #FAFAFA;
+    opacity: 0.7;
+}
+
+.notif-time {
+    font-size: 11px;
+    color: rgba(40,40,40,0.5);
+    margin-bottom: 6px;
+    font-weight: 700;
+}
