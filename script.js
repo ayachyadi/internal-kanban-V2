@@ -28,6 +28,7 @@ let dataLog = [];
 let semuaProfilMap = {}; 
 let dataProfilUser = {}; 
 let currentSelectedPics = []; 
+let dataNotifikasi = [];
 
 const currentPath = window.location.pathname;
 const isProtectedPage = currentPath.includes("index") || currentPath.includes("tentang") || currentPath.includes("log") || currentPath.includes("report") || currentPath.includes("profile") || currentPath === "/";
@@ -104,6 +105,29 @@ function inisialisasiDataRealtime() {
 
     setupAutocompletePIC(); 
 }
+
+// D. Sinkronisasi Notifikasi Real-time
+    onSnapshot(collection(db, "notifikasi"), (snapshot) => {
+        dataNotifikasi = [];
+        snapshot.forEach(doc => {
+            let notif = doc.data();
+            notif.id = doc.id;
+            // Hanya ambil notifikasi yang ditujukan untuk user ini
+            if (notif.toEmail === currentUserEmail || notif.toName === dataProfilUser.nama) {
+                dataNotifikasi.push(notif);
+            }
+        });
+        
+        dataNotifikasi.sort((a,b) => b.timestamp - a.timestamp);
+        
+        // Atur tampilan titik merah (Badge)
+        const unreadCount = dataNotifikasi.filter(n => !n.isRead).length;
+        const badge = document.getElementById("notifBadge");
+        if(badge) badge.style.display = unreadCount > 0 ? "block" : "none";
+
+        // Render jika sedang buka halaman profil
+        if(document.getElementById("userNotifList")) renderNotifikasi();
+    });
 
 // Fungsi Pencatat Log ke Firestore
 async function catatLog(aksi, namaTugas) {
@@ -187,6 +211,52 @@ function setupAutocompletePIC() {
             if(box) box.style.display = 'none';
         }
     });
+}
+
+// Fungsi mengirim notifikasi ke Cloud
+async function kirimNotifikasi(toName, toEmail, pesan) {
+    // Jangan kirim notifikasi ke diri sendiri
+    if ((toEmail && toEmail === currentUserEmail) || (toName && toName === dataProfilUser.nama)) return;
+
+    await addDoc(collection(db, "notifikasi"), {
+        toName: toName,
+        toEmail: toEmail,
+        pesan: pesan,
+        isRead: false,
+        timestamp: Date.now()
+    });
+}
+
+// Fungsi menggambar notifikasi di halaman profil
+window.renderNotifikasi = function() {
+    const list = document.getElementById("userNotifList");
+    if(!list) return;
+    list.innerHTML = "";
+    
+    // Hanya tampilkan yang belum dibaca agar rapi, atau tampilkan semua dengan styling beda
+    const unreadNotifs = dataNotifikasi.filter(n => !n.isRead);
+
+    if(unreadNotifs.length === 0) {
+        list.innerHTML = "<p style='color:gray; font-size:13px;'>Hore! Tidak ada notifikasi baru.</p>";
+        return;
+    }
+
+    unreadNotifs.forEach(n => {
+        let dateStr = new Date(n.timestamp).toLocaleString('id-ID');
+        list.innerHTML += `
+            <div class="notif-item">
+                <div class="notif-time">${dateStr}</div>
+                <div>${n.pesan}</div>
+            </div>`;
+    });
+}
+
+// Fungsi menandai semua sebagai telah dibaca
+window.tandaiSemuaDibaca = async function() {
+    const unreadNotifs = dataNotifikasi.filter(n => !n.isRead);
+    for (let n of unreadNotifs) {
+        await updateDoc(doc(db, "notifikasi", n.id), { isRead: true });
+    }
 }
 
 // ==========================================
@@ -321,6 +391,9 @@ window.bukaModalTambah = function(statusKolom) {
     document.getElementById("inputDoneCheck").checked = false;
     currentSelectedPics = [];
     renderPicTags();
+    const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
+    const today = (new Date(Date.now() - tzOffset)).toISOString().split("T")[0];
+    document.getElementById("inputDue").min = today;
     modal.style.display = "flex";
 }
 
@@ -336,6 +409,9 @@ window.bukaModalEdit = function(id) {
         document.getElementById("inputDue").value = tugas.tenggat;
         document.getElementById("inputDesc").innerHTML = tugas.deskripsi || "";
         document.getElementById("inputDoneCheck").checked = tugas.isDone || false;
+        const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
+        const today = (new Date(Date.now() - tzOffset)).toISOString().split("T")[0];
+        document.getElementById("inputDue").min = today;
         
         if (Array.isArray(tugas.pic)) currentSelectedPics = [...tugas.pic];
         else if (typeof tugas.pic === 'string' && tugas.pic) currentSelectedPics = tugas.pic.split(',').map(s=>s.trim());
@@ -379,6 +455,15 @@ window.simpanTugas = async function(event) {
                 pic: [...currentSelectedPics], deskripsi: deskripsiRichText, 
                 isDone: isDone, status: newStatus
             });
+
+            // --- SISIPKAN INI SEBELUM catatLog ---
+            // Cek apakah ada PIC baru yang ditambahkan
+            let picLama = Array.isArray(tugas.pic) ? tugas.pic : (typeof tugas.pic === 'string' ? tugas.pic.split(',').map(s=>s.trim()) : []);
+            let picBaru = currentSelectedPics.filter(p => !picLama.includes(p));
+            picBaru.forEach(namaPekerja => {
+                kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menambahkan Anda sebagai PIC di tugas: <em>${judul}</em>`);
+            });
+
             catatLog("Mengedit kartu", judul);
         }
     } else {
@@ -391,6 +476,11 @@ window.simpanTugas = async function(event) {
             pic: [...currentSelectedPics], 
             deskripsi: deskripsiRichText, isDone: isDone, komentar: []
         });
+// --- SISIPKAN INI SEBELUM catatLog ---
+        currentSelectedPics.forEach(namaPekerja => {
+            kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menugaskan Anda pada kartu baru: <em>${judul}</em>`);
+        });
+
         catatLog("Membuat kartu baru", judul);
     }
     window.tutupModal();
@@ -450,6 +540,8 @@ window.simpanBalasan = async function(targetEmail, index) {
         arrayKomentar.push({ user: currentUserEmail, waktu: new Date().toLocaleString('id-ID'), teks: teks, replyToUser: targetEmail });
         
         await updateDoc(doc(db, "tugas", modeEditId), { komentar: arrayKomentar });
+        // --- SISIPKAN INI SEBELUM catatLog ---
+        kirimNotifikasi(null, targetEmail, `<strong>${dataProfilUser.nama}</strong> membalas komentar Anda di tugas: <em>${tugas.judul}</em>`);
         catatLog("Membalas komentar tim pada", tugas.judul);
     }
 }
