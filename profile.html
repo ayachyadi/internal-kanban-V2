@@ -17,10 +17,9 @@
             <a href="tentang.html">Tentang</a>
             
             <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 16px 0 32px;"></div>
-            
             <button onclick="prosesLogout()" style="margin-left: 0;">Keluar</button>
             
-            <a href="profile.html" class="nav-profile-link">
+            <a href="profile.html" class="nav-profile-link active" style="position: relative;">
                 <img id="navProfileIcon" src="" alt="Profil">
                 <span id="notifBadge" class="notif-badge" style="display: none;"></span>
             </a>
@@ -31,7 +30,6 @@
         <h1 style="margin-bottom: 32px; font-size: 32px; letter-spacing: -1px;">Pengaturan Profil</h1>
 
         <div class="profile-wrapper">
-            
             <div style="display: flex; flex-direction: column; gap: 24px;">
                 
                 <div class="profile-card">
@@ -52,7 +50,6 @@
                         <div class="input-group" style="text-align: left;">
                             <label>Email (ID)</label>
                             <input type="email" id="inputEmailProfil" disabled style="background-color: #EFEFEF; color: #888; cursor: not-allowed;">
-                            <p style="font-size: 11px; color: gray; margin-top: 4px;">Email terhubung dengan Firebase Auth.</p>
                         </div>
 
                         <button type="submit" class="save-btn" style="width: 100%; margin-top: 16px;">Simpan Profil</button>
@@ -71,7 +68,6 @@
                         <p style="color:gray; font-size:13px; text-align:center;">Memuat kategori...</p>
                     </div>
                 </div>
-
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 24px;">
@@ -94,7 +90,6 @@
                 </div>
 
             </div>
-
         </div>
     </main>
 
