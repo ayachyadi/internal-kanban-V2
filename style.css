@@ -1181,3 +1181,81 @@ body {
     background-color: rgba(204, 250, 89, 0.2); /* Aksen tipis Sprout Acid */
     color: #282828 !important;
 }
+
+/* =========================================
+   PERBAIKAN TATA LETAK MODAL (ANTI TABRAKAN)
+========================================= */
+
+/* 1. Pemisah antara Checkbox Selesai dan Tombol Hapus/Simpan */
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-top: 16px;
+    margin-bottom: 32px !important; /* Memaksa jarak jauh ke bawah */
+    font-size: 13px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(40,40,40,0.1);
+}
+
+/* 2. Merenggangkan area Komentar */
+#commentSection {
+    margin-top: 24px;
+    padding-top: 24px;
+}
+
+.comment-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Memberi nafas antar teks di dalam satu komentar */
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed rgba(40,40,40,0.15);
+}
+
+.comment-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.comment-meta {
+    font-size: 12px;
+    color: rgba(40,40,40,0.6);
+}
+
+.comment-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #282828;
+}
+
+/* 3. Merapikan form balasan komentar */
+.reply-form {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.reply-form input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid rgba(40,40,40,0.15);
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.reply-form button {
+    padding: 8px 16px;
+    background-color: #282828;
+    color: #CCFA59;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
