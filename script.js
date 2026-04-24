@@ -435,13 +435,20 @@ window.renderHalamanProfil = function() {
     document.getElementById("inputNamaProfil").value = dataProfilUser.nama;
     document.getElementById("avatarPreview").src = dataProfilUser.avatar;
     
-    // Tampilkan role di dropdown testing
+    // Tampilkan role di dropdown testing (milik sendiri)
     const roleInput = document.getElementById("inputRoleProfil");
     if(roleInput) roleInput.value = dataProfilUser.role || 'admin';
 
-    // RBAC: Sembunyikan panel Kategori Global jika bukan Admin
+    // RBAC: Tampilkan panel Kategori & Panel Tim HANYA jika Admin
+    const isMimin = (dataProfilUser.role === 'admin');
     const katPanel = document.getElementById("kategoriPanel");
-    if(katPanel) katPanel.style.display = (dataProfilUser.role === 'admin') ? 'block' : 'none';
+    if(katPanel) katPanel.style.display = isMimin ? 'block' : 'none';
+    
+    const teamPanel = document.getElementById("teamPanel");
+    if(teamPanel) {
+        teamPanel.style.display = isMimin ? 'block' : 'none';
+        if(isMimin) renderManajemenTim(); // Gambar daftar tim!
+    }
 
     renderHistoryProfil();
 }
@@ -454,6 +461,58 @@ window.simpanProfil = async function(event) {
     await setDoc(doc(db, "profiles", currentUserEmail), { nama: namaBaru, avatar: avatarBaru, role: roleUjiCoba }, { merge: true });
     alert("Profil (dan Role) berhasil diperbarui di Cloud!");
 }
+// ==========================================
+// MANAJEMEN TIM (KHUSUS ADMIN)
+// ==========================================
+window.renderManajemenTim = function() {
+    const container = document.getElementById("listTeamPengaturan");
+    if (!container) return;
+    container.innerHTML = "";
+
+    // Membongkar data semua pengguna dari Firebase
+    for (let email in semuaProfilMap) {
+        let user = semuaProfilMap[email];
+        let userRole = user.role || 'viewer'; // Jika belum punya role, anggap viewer
+        
+        // Mencegah admin membuang status adminnya sendiri dari panel ini 
+        // (Biar tidak tidak sengaja terkunci dari sistem)
+        let lockDiriSendiri = (email === currentUserEmail) ? 'disabled title="Gunakan form profil di atas untuk role Anda sendiri"' : '';
+
+        container.innerHTML += `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #FAFAFA; padding: 12px; border: 1px solid rgba(40,40,40,0.1); border-radius: 8px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <img src="${user.avatar || 'https://ui-avatars.com/api/?name='+user.nama+'&background=CCFA59&color=282828'}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                    <div>
+                        <div style="font-size: 13px; font-weight: 700; color: #282828;">${user.nama}</div>
+                        <div style="font-size: 11px; color: rgba(40,40,40,0.6);">${email}</div>
+                    </div>
+                </div>
+                <select class="sprout-select" style="padding: 4px 8px; font-size: 12px; min-width: 100px;" onchange="ubahRolePengguna('${email}', this.value)" ${lockDiriSendiri}>
+                    <option value="admin" ${userRole === 'admin' ? 'selected' : ''}>Admin</option>
+                    <option value="editor" ${userRole === 'editor' ? 'selected' : ''}>Editor</option>
+                    <option value="viewer" ${userRole === 'viewer' ? 'selected' : ''}>Viewer</option>
+                </select>
+            </div>
+        `;
+    }
+}
+
+window.ubahRolePengguna = async function(emailTarget, roleBaru) {
+    if (dataProfilUser.role !== 'admin') {
+        alert("Akses Ditolak: Hanya Admin yang bisa mengubah hak akses.");
+        return;
+    }
+    
+    if (confirm(`Angkat pengguna ${emailTarget} menjadi ${roleBaru.toUpperCase()}?`)) {
+        // Mengirim update langsung ke dokumen profil target
+        await setDoc(doc(db, "profiles", emailTarget), { role: roleBaru }, { merge: true });
+        catatLog("Mengubah hak akses (role)", emailTarget + " menjadi " + roleBaru);
+        // Karena kita pakai Real-time Listener, UI akan otomatis berkedip menyesuaikan!
+    } else {
+        renderManajemenTim(); // Kembalikan ke posisi semula jika batal
+    }
+}
+
 window.renderHistoryProfil = function() {
     const historyList = document.getElementById("userHistoryList"); if (!historyList) return;
     const myLogs = dataLog.filter(log => log.pengguna === currentUserEmail);
