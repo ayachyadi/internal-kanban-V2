@@ -1,9 +1,10 @@
 // ==========================================
 // 1. IMPORT FIREBASE (AUTH & FIRESTORE)
 // ==========================================
+// Menambahkan import 'limit' untuk membatasi tarikan data log
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDocs, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDocs, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
 // GANTI BAGIAN INI DENGAN CONFIG FIREBASE ANDA
 const firebaseConfig = {
@@ -24,11 +25,12 @@ const db = getFirestore(app);
 // ==========================================
 let currentUserEmail = "Anonim";
 let dataTugas = [];
+let dataArsip = []; // Tambahan: Penampung khusus untuk data Arsip
 let dataLog = [];
+let dataNotifikasi = [];
 let semuaProfilMap = {}; 
 let dataProfilUser = {}; 
 let currentSelectedPics = []; 
-let dataNotifikasi = [];
 
 const currentPath = window.location.pathname;
 const isProtectedPage = currentPath.includes("index") || currentPath.includes("tentang") || currentPath.includes("log") || currentPath.includes("report") || currentPath.includes("profile") || currentPath === "/";
@@ -49,17 +51,13 @@ window.prosesLogout = function() { signOut(auth).then(() => { window.location.hr
 // ==========================================
 // 3. FIRESTORE REAL-TIME LISTENERS
 // ==========================================
-// Menggantikan localStorage dengan sinkronisasi cloud langsung
 function inisialisasiDataRealtime() {
     
-    // A. Sinkronisasi Profil Real-time
+    // A. Sinkronisasi Profil
     onSnapshot(collection(db, "profiles"), (snapshot) => {
         semuaProfilMap = {};
-        snapshot.forEach(doc => {
-            semuaProfilMap[doc.id] = doc.data();
-        });
+        snapshot.forEach(doc => { semuaProfilMap[doc.id] = doc.data(); });
 
-        // Pertahankan logika muka/avatar persis seperti sebelumnya
         let inisial = currentUserEmail.charAt(0).toUpperCase();
         dataProfilUser = semuaProfilMap[currentUserEmail] || { 
             nama: currentUserEmail.split('@')[0], 
@@ -70,11 +68,11 @@ function inisialisasiDataRealtime() {
         if(navIcon) navIcon.src = dataProfilUser.avatar;
         
         if (document.getElementById("formProfil")) renderHalamanProfil();
-        if (document.getElementById("logTableBody")) renderTabelLog(); // Update nama di log
-        if (document.getElementById("list-todo")) renderPapanKanban(); // Update nama PIC di papan
+        if (document.getElementById("logTableBody")) renderTabelLog(); 
+        if (document.getElementById("list-todo")) renderPapanKanban(); 
     });
 
-    // B. Sinkronisasi Tugas (Kanban) Real-time
+    // B. Sinkronisasi Tugas (Hanya Koleksi Utama)
     onSnapshot(collection(db, "tugas"), (snapshot) => {
         dataTugas = [];
         snapshot.forEach(doc => { dataTugas.push(doc.data()); });
@@ -82,19 +80,24 @@ function inisialisasiDataRealtime() {
         if (document.getElementById("list-todo")) renderPapanKanban();
         if (document.getElementById("categoryChart")) renderLaporan();
         
-        // Auto-refresh data di dalam Modal jika sedang dibuka
         if (modeEditId && document.getElementById("cardModal")?.style.display === "flex") {
             let tugasAktif = dataTugas.find(t => t.id === modeEditId);
-            if(tugasAktif) {
-                renderKomentar(tugasAktif.komentar || []);
-            } else {
-                window.tutupModal(); // Tugas dihapus orang lain
-            }
+            if(tugasAktif) renderKomentar(tugasAktif.komentar || []);
+            else window.tutupModal(); 
         }
     });
 
-    // C. Sinkronisasi Log Aktivitas Real-time (Diurutkan dari terbaru)
-    const qLogs = query(collection(db, "logs"), orderBy("timestamp", "desc"));
+    // C. Sinkronisasi KOLEKSI ARSIP (Terpisah)
+    onSnapshot(collection(db, "arsip_tugas"), (snapshot) => {
+        dataArsip = [];
+        snapshot.forEach(doc => { dataArsip.push(doc.data()); });
+        
+        if (document.getElementById("archiveList")) renderDaftarArsip();
+        if (document.getElementById("categoryChart")) renderLaporan(); // Laporan perlu dirender ulang jika arsip berubah
+    });
+
+    // D. Sinkronisasi Log (DIBATASI HANYA 50 TERBARU!)
+    const qLogs = query(collection(db, "logs"), orderBy("timestamp", "desc"), limit(50));
     onSnapshot(qLogs, (snapshot) => {
         dataLog = [];
         snapshot.forEach(doc => { dataLog.push(doc.data()); });
@@ -103,16 +106,12 @@ function inisialisasiDataRealtime() {
         if (document.getElementById("userHistoryList")) renderHistoryProfil();
     });
 
-    setupAutocompletePIC(); 
-}
-
-// D. Sinkronisasi Notifikasi Real-time
+    // E. Sinkronisasi Notifikasi
     onSnapshot(collection(db, "notifikasi"), (snapshot) => {
         dataNotifikasi = [];
         snapshot.forEach(doc => {
             let notif = doc.data();
             notif.id = doc.id;
-            // Hanya ambil notifikasi yang ditujukan untuk user ini
             if (notif.toEmail === currentUserEmail || notif.toName === dataProfilUser.nama) {
                 dataNotifikasi.push(notif);
             }
@@ -120,29 +119,56 @@ function inisialisasiDataRealtime() {
         
         dataNotifikasi.sort((a,b) => b.timestamp - a.timestamp);
         
-        // Atur tampilan titik merah (Badge)
         const unreadCount = dataNotifikasi.filter(n => !n.isRead).length;
         const badge = document.getElementById("notifBadge");
         if(badge) badge.style.display = unreadCount > 0 ? "block" : "none";
 
-        // Render jika sedang buka halaman profil
         if(document.getElementById("userNotifList")) renderNotifikasi();
     });
 
-// Fungsi Pencatat Log ke Firestore
+    setupAutocompletePIC(); 
+}
+
 async function catatLog(aksi, namaTugas) {
     const waktuSekarang = new Date().toLocaleString('id-ID');
     await addDoc(collection(db, "logs"), {
-        waktu: waktuSekarang,
-        pengguna: currentUserEmail,
-        aksi: aksi,
-        tugas: namaTugas,
-        timestamp: Date.now() // Untuk sorting yang akurat di database
+        waktu: waktuSekarang, pengguna: currentUserEmail, aksi: aksi, tugas: namaTugas, timestamp: Date.now()
     });
 }
 
 function dapatkanNamaTampil(email) {
     return semuaProfilMap[email] ? semuaProfilMap[email].nama : email.split('@')[0];
+}
+
+async function kirimNotifikasi(toName, toEmail, pesan) {
+    if ((toEmail && toEmail === currentUserEmail) || (toName && toName === dataProfilUser.nama)) return;
+    await addDoc(collection(db, "notifikasi"), {
+        toName: toName, toEmail: toEmail, pesan: pesan, isRead: false, timestamp: Date.now()
+    });
+}
+
+window.renderNotifikasi = function() {
+    const list = document.getElementById("userNotifList");
+    if(!list) return;
+    list.innerHTML = "";
+    
+    const unreadNotifs = dataNotifikasi.filter(n => !n.isRead);
+    if(unreadNotifs.length === 0) {
+        list.innerHTML = "<p style='color:gray; font-size:13px;'>Hore! Tidak ada notifikasi baru.</p>";
+        return;
+    }
+
+    unreadNotifs.forEach(n => {
+        let dateStr = new Date(n.timestamp).toLocaleString('id-ID');
+        list.innerHTML += `<div class="notif-item"><div class="notif-time">${dateStr}</div><div>${n.pesan}</div></div>`;
+    });
+}
+
+window.tandaiSemuaDibaca = async function() {
+    const unreadNotifs = dataNotifikasi.filter(n => !n.isRead);
+    for (let n of unreadNotifs) {
+        await updateDoc(doc(db, "notifikasi", n.id), { isRead: true });
+    }
 }
 
 // ==========================================
@@ -164,11 +190,7 @@ window.renderPicTags = function() {
     });
 }
 
-window.hapusPic = function(index) {
-    currentSelectedPics.splice(index, 1);
-    renderPicTags();
-}
-
+window.hapusPic = function(index) { currentSelectedPics.splice(index, 1); renderPicTags(); }
 window.tambahPic = function(nama) {
     if(!currentSelectedPics.includes(nama)) currentSelectedPics.push(nama);
     document.getElementById('inputPerson').value = '';
@@ -184,11 +206,9 @@ function setupAutocompletePIC() {
         const val = e.target.value.toLowerCase();
         const box = document.getElementById('picSuggestions');
         box.innerHTML = '';
-        
         if(!val) { box.style.display = 'none'; return; }
 
         const cocok = dapatkanDaftarMember().filter(m => m.toLowerCase().includes(val) && !currentSelectedPics.includes(m));
-        
         if(cocok.length > 0) {
             box.style.display = 'block';
             cocok.forEach(m => { box.innerHTML += `<div class="suggestion-item" onclick="tambahPic('${m}')">${m}</div>`; });
@@ -200,8 +220,7 @@ function setupAutocompletePIC() {
 
     input.addEventListener('keydown', function(e) {
         if(e.key === 'Backspace' && input.value === '' && currentSelectedPics.length > 0) {
-            currentSelectedPics.pop();
-            renderPicTags();
+            currentSelectedPics.pop(); renderPicTags();
         }
     });
 
@@ -211,52 +230,6 @@ function setupAutocompletePIC() {
             if(box) box.style.display = 'none';
         }
     });
-}
-
-// Fungsi mengirim notifikasi ke Cloud
-async function kirimNotifikasi(toName, toEmail, pesan) {
-    // Jangan kirim notifikasi ke diri sendiri
-    if ((toEmail && toEmail === currentUserEmail) || (toName && toName === dataProfilUser.nama)) return;
-
-    await addDoc(collection(db, "notifikasi"), {
-        toName: toName,
-        toEmail: toEmail,
-        pesan: pesan,
-        isRead: false,
-        timestamp: Date.now()
-    });
-}
-
-// Fungsi menggambar notifikasi di halaman profil
-window.renderNotifikasi = function() {
-    const list = document.getElementById("userNotifList");
-    if(!list) return;
-    list.innerHTML = "";
-    
-    // Hanya tampilkan yang belum dibaca agar rapi, atau tampilkan semua dengan styling beda
-    const unreadNotifs = dataNotifikasi.filter(n => !n.isRead);
-
-    if(unreadNotifs.length === 0) {
-        list.innerHTML = "<p style='color:gray; font-size:13px;'>Hore! Tidak ada notifikasi baru.</p>";
-        return;
-    }
-
-    unreadNotifs.forEach(n => {
-        let dateStr = new Date(n.timestamp).toLocaleString('id-ID');
-        list.innerHTML += `
-            <div class="notif-item">
-                <div class="notif-time">${dateStr}</div>
-                <div>${n.pesan}</div>
-            </div>`;
-    });
-}
-
-// Fungsi menandai semua sebagai telah dibaca
-window.tandaiSemuaDibaca = async function() {
-    const unreadNotifs = dataNotifikasi.filter(n => !n.isRead);
-    for (let n of unreadNotifs) {
-        await updateDoc(doc(db, "notifikasi", n.id), { isRead: true });
-    }
 }
 
 // ==========================================
@@ -292,17 +265,12 @@ window.gantiAvatar = function(event) {
     }
 }
 
-// Menyimpan profil ke cloud
 window.simpanProfil = async function(event) {
     event.preventDefault();
     const namaBaru = document.getElementById("inputNamaProfil").value;
     const avatarBaru = document.getElementById("avatarPreview").src;
     
-    await setDoc(doc(db, "profiles", currentUserEmail), {
-        nama: namaBaru, 
-        avatar: avatarBaru
-    });
-    
+    await setDoc(doc(db, "profiles", currentUserEmail), { nama: namaBaru, avatar: avatarBaru });
     alert("Profil berhasil diperbarui di Cloud!");
 }
 
@@ -335,15 +303,15 @@ window.renderPapanKanban = function() {
 
         const kartuHTML = `
             <div class="card" draggable="true" ondragstart="drag(event)" onclick="bukaModalEdit('${tugas.id}')" id="${tugas.id}">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            ${kategoriHTML}
-            <button class="card-archive-btn" onclick="event.stopPropagation(); arsipTugasSatuan('${tugas.id}')" title="Arsipkan">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-            </button>
-        </div>
-        <h4>${tugas.judul}</h4>
-        <p>${picDisplay} • ${tugas.tenggat || "-"}${infoKomentar}</p>
-    </div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    ${kategoriHTML}
+                    <button class="card-archive-btn" onclick="event.stopPropagation(); arsipTugasSatuan('${tugas.id}')" title="Arsipkan">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+                    </button>
+                </div>
+                <h4>${tugas.judul}</h4>
+                <p>${picDisplay} • ${tugas.tenggat || "-"}${infoKomentar}</p>
+            </div>
         `;
         document.getElementById("list-" + tugas.status).innerHTML += kartuHTML;
     });
@@ -362,15 +330,8 @@ window.drop = async function(ev, targetStatus) {
     
     if (tugasPilihan && tugasPilihan.status !== targetStatus) {
         let isDone = (targetStatus === 'review' || targetStatus === 'done');
-        
-        // Update document langsung ke Firestore
-        await updateDoc(doc(db, "tugas", idKartu), {
-            status: targetStatus,
-            isDone: isDone
-        });
-        
+        await updateDoc(doc(db, "tugas", idKartu), { status: targetStatus, isDone: isDone });
         catatLog("Memindahkan kartu ke kolom " + targetStatus.toUpperCase(), tugasPilihan.judul);
-        // Note: Tidak perlu panggil renderPapanKanban manual karena onSnapshot otomatis mendeteksinya
     }
 }
 
@@ -396,9 +357,12 @@ window.bukaModalTambah = function(statusKolom) {
     document.getElementById("inputDoneCheck").checked = false;
     currentSelectedPics = [];
     renderPicTags();
+    
+    // Mencegah input due date masa lalu
     const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
     const today = (new Date(Date.now() - tzOffset)).toISOString().split("T")[0];
     document.getElementById("inputDue").min = today;
+
     modal.style.display = "flex";
 }
 
@@ -414,10 +378,12 @@ window.bukaModalEdit = function(id) {
         document.getElementById("inputDue").value = tugas.tenggat;
         document.getElementById("inputDesc").innerHTML = tugas.deskripsi || "";
         document.getElementById("inputDoneCheck").checked = tugas.isDone || false;
+        
+        // Mencegah input due date masa lalu (jika diubah)
         const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
         const today = (new Date(Date.now() - tzOffset)).toISOString().split("T")[0];
         document.getElementById("inputDue").min = today;
-        
+
         if (Array.isArray(tugas.pic)) currentSelectedPics = [...tugas.pic];
         else if (typeof tugas.pic === 'string' && tugas.pic) currentSelectedPics = tugas.pic.split(',').map(s=>s.trim());
         else currentSelectedPics = [];
@@ -454,26 +420,26 @@ window.simpanTugas = async function(event) {
             let newStatus = tugas.status;
             if(isDone && (tugas.status === 'todo' || tugas.status === 'doing')) newStatus = 'review';
             
-            // Update Firestore
-            await updateDoc(doc(db, "tugas", modeEditId), {
-                judul: judul, kategori: kategori, tenggat: tenggat,
-                pic: [...currentSelectedPics], deskripsi: deskripsiRichText, 
-                isDone: isDone, status: newStatus
-            });
-
-            // --- SISIPKAN INI SEBELUM catatLog ---
-            // Cek apakah ada PIC baru yang ditambahkan
             let picLama = Array.isArray(tugas.pic) ? tugas.pic : (typeof tugas.pic === 'string' ? tugas.pic.split(',').map(s=>s.trim()) : []);
             let picBaru = currentSelectedPics.filter(p => !picLama.includes(p));
             picBaru.forEach(namaPekerja => {
                 kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menambahkan Anda sebagai PIC di tugas: <em>${judul}</em>`);
             });
 
+            await updateDoc(doc(db, "tugas", modeEditId), {
+                judul: judul, kategori: kategori, tenggat: tenggat,
+                pic: [...currentSelectedPics], deskripsi: deskripsiRichText, 
+                isDone: isDone, status: newStatus
+            });
             catatLog("Mengedit kartu", judul);
         }
     } else {
         const newId = "task_" + Date.now();
-        // Insert to Firestore
+        
+        currentSelectedPics.forEach(namaPekerja => {
+            kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menugaskan Anda pada kartu baru: <em>${judul}</em>`);
+        });
+
         await setDoc(doc(db, "tugas", newId), {
             id: newId, 
             status: isDone ? 'review' : kolomTarget,
@@ -481,11 +447,6 @@ window.simpanTugas = async function(event) {
             pic: [...currentSelectedPics], 
             deskripsi: deskripsiRichText, isDone: isDone, komentar: []
         });
-// --- SISIPKAN INI SEBELUM catatLog ---
-        currentSelectedPics.forEach(namaPekerja => {
-            kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menugaskan Anda pada kartu baru: <em>${judul}</em>`);
-        });
-
         catatLog("Membuat kartu baru", judul);
     }
     window.tutupModal();
@@ -544,15 +505,94 @@ window.simpanBalasan = async function(targetEmail, index) {
         let arrayKomentar = tugas.komentar || [];
         arrayKomentar.push({ user: currentUserEmail, waktu: new Date().toLocaleString('id-ID'), teks: teks, replyToUser: targetEmail });
         
-        await updateDoc(doc(db, "tugas", modeEditId), { komentar: arrayKomentar });
-        // --- SISIPKAN INI SEBELUM catatLog ---
         kirimNotifikasi(null, targetEmail, `<strong>${dataProfilUser.nama}</strong> membalas komentar Anda di tugas: <em>${tugas.judul}</em>`);
+
+        await updateDoc(doc(db, "tugas", modeEditId), { komentar: arrayKomentar });
         catatLog("Membalas komentar tim pada", tugas.judul);
     }
 }
 
 // ==========================================
-// 10. RENDER LOG GENERAL CLOUD
+// 10. PUSAT ARSIP (PISAH KOLEKSI UNTUK HEMAT BIAYA SERVER)
+// ==========================================
+window.arsipTugasSatuan = async function(id) {
+    let tugas = dataTugas.find(t => t.id === id);
+    if (tugas) {
+        tugas.status = 'archived';
+        await setDoc(doc(db, "arsip_tugas", id), tugas); // Simpan di koleksi arsip
+        await deleteDoc(doc(db, "tugas", id)); // Hapus dari koleksi papan utama
+        catatLog("Mengarsipkan kartu", tugas.judul);
+    }
+}
+
+window.arsipTugasSelesai = async function() {
+    const tugasSelesai = dataTugas.filter(t => t.status === 'done');
+    if (tugasSelesai.length === 0) { alert("Tidak ada tugas di kolom Done untuk diarsipkan."); return; }
+
+    if (confirm(`Pindahkan ${tugasSelesai.length} tugas ke Pusat Arsip?`)) {
+        for (let tugas of tugasSelesai) {
+            tugas.status = 'archived';
+            await setDoc(doc(db, "arsip_tugas", tugas.id), tugas);
+            await deleteDoc(doc(db, "tugas", tugas.id));
+        }
+        catatLog("Mengarsipkan semua tugas selesai", "Mass Archive");
+    }
+}
+
+window.bukaModalArsip = function() {
+    document.getElementById("archiveModal").style.display = "flex";
+    renderDaftarArsip();
+}
+
+window.renderDaftarArsip = function() {
+    const list = document.getElementById("archiveList");
+    if (!list) return;
+
+    if (dataArsip.length === 0) {
+        list.innerHTML = "<p style='color:gray; font-size:13px; text-align:center; padding: 32px 0;'>Pusat arsip kosong.</p>";
+        return;
+    }
+
+    list.innerHTML = "";
+    dataArsip.forEach(tugas => {
+        let picDisplay = Array.isArray(tugas.pic) ? tugas.pic.join(', ') : (tugas.pic || "Tanpa PIC");
+        list.innerHTML += `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #FAFAFA; border: 1px solid rgba(40,40,40,0.1); border-radius: 8px; transition: all 0.2s ease;">
+                <div>
+                    <div style="font-size: 14px; font-weight: 700; color: #282828; margin-bottom: 4px;">${tugas.judul}</div>
+                    <div style="font-size: 12px; color: rgba(40,40,40,0.55);">
+                        <span style="background: rgba(40,40,40,0.06); padding: 2px 6px; border-radius: 4px; font-weight: 700; color: #282828; font-size: 10px; text-transform: uppercase;">${tugas.kategori || 'LAINNYA'}</span> 
+                        &nbsp;•&nbsp; ${picDisplay}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="pulihkanTugas('${tugas.id}')" style="background: #282828; color: #CCFA59; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">Pulihkan</button>
+                    <button onclick="hapusPermanenTugas('${tugas.id}')" style="background: #FFFFFF; color: #E23B3B; border: 1px solid rgba(226,59,59,0.3); padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">Hapus Permanen</button>
+                </div>
+            </div>`;
+    });
+}
+
+window.pulihkanTugas = async function(id) {
+    let tugas = dataArsip.find(t => t.id === id);
+    if (tugas) {
+        tugas.status = 'done';
+        await setDoc(doc(db, "tugas", id), tugas); // Kembalikan ke papan utama
+        await deleteDoc(doc(db, "arsip_tugas", id)); // Hapus dari arsip
+        catatLog("Memulihkan tugas dari arsip", "Restore");
+    }
+}
+
+window.hapusPermanenTugas = async function(id) {
+    if(confirm("Yakin ingin menghapus tugas ini selamanya?")) {
+        let tugas = dataArsip.find(t => t.id === id);
+        await deleteDoc(doc(db, "arsip_tugas", id));
+        catatLog("Menghapus permanen tugas dari arsip", tugas ? tugas.judul : "Unknown");
+    }
+}
+
+// ==========================================
+// 11. RENDER LOG GENERAL CLOUD
 // ==========================================
 window.renderTabelLog = function() {
     const tbody = document.getElementById("logTableBody");
@@ -564,18 +604,8 @@ window.renderTabelLog = function() {
     });
 }
 
-window.bersihkanLog = async function() {
-    if(confirm("Yakin ingin menghapus semua log aktivitas di server?")) {
-        // Hapus satu persatu dokumen di koleksi logs
-        const querySnapshot = await getDocs(collection(db, "logs"));
-        querySnapshot.forEach((d) => {
-            deleteDoc(doc(db, "logs", d.id));
-        });
-    }
-}
-
 // ==========================================
-// 11. RENDER LAPORAN KINERJA
+// 12. RENDER LAPORAN KINERJA (GABUNGAN PAPAN & ARSIP)
 // ==========================================
 window.renderLaporan = function() {
     const chartContainer = document.getElementById("categoryChart");
@@ -587,7 +617,10 @@ window.renderLaporan = function() {
     let selesai = 0, pending = 0, backlog = 0; 
     let statsKategori = {};
 
-    dataTugas.forEach(tugas => {
+    // GABUNGKAN DATA: Menyatukan data tugas aktif di papan dan tugas di pusat arsip
+    const gabunganData = [...dataTugas, ...dataArsip];
+
+    gabunganData.forEach(tugas => {
         let waktuDibuat = waktuSekarang;
         if (tugas.id && tugas.id.includes('_')) {
             const extractedTime = parseInt(tugas.id.split('_')[1]);
@@ -601,14 +634,15 @@ window.renderLaporan = function() {
         else if (filterWaktu === 'year') masukHitungan = (waktuDibuat.getFullYear() === waktuSekarang.getFullYear());
 
         if (masukHitungan) {
-            if (tugas.status === 'done' || tugas.status === 'review') selesai++;
+            // Tugas yang diarsipkan pasti masuk kategori selesai
+            if (tugas.status === 'done' || tugas.status === 'review' || tugas.status === 'archived') selesai++;
             else if (tugas.status === 'doing') pending++;
             else if (tugas.status === 'todo') backlog++;
 
             let kat = tugas.kategori || "Lainnya";
             if (!statsKategori[kat]) statsKategori[kat] = { total: 0, selesai: 0 };
             statsKategori[kat].total++;
-            if (tugas.status === 'done' || tugas.status === 'review') statsKategori[kat].selesai++;
+            if (tugas.status === 'done' || tugas.status === 'review' || tugas.status === 'archived') statsKategori[kat].selesai++;
         }
     });
 
@@ -632,7 +666,6 @@ window.renderLaporan = function() {
 }
 
 window.downloadReportHTML = function() {
-    // ... [Kode downloadReportHTML tetap persis sama seperti sebelumnya] ...
     const filterTeks = document.getElementById("filterWaktu").options[document.getElementById("filterWaktu").selectedIndex].text;
     const selesai = document.getElementById("countSelesai").innerText;
     const pending = document.getElementById("countPending").innerText;
@@ -646,78 +679,4 @@ window.downloadReportHTML = function() {
     link.href = URL.createObjectURL(blob);
     link.download = `Sprout_Report_${filterTeks.replace(/\s+/g, '_')}.html`;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
-}
-// Fungsi untuk mengarsipkan satu kartu spesifik
-window.arsipTugasSatuan = async function(id) {
-    let tugas = dataTugas.find(t => t.id === id);
-    if (tugas) {
-        await updateDoc(doc(db, "tugas", id), {
-            status: 'archived'
-        });
-        catatLog("Mengarsipkan kartu", tugas.judul);
-    }
-}
-
-// ==========================================
-// 12. PUSAT ARSIP (ARCHIVE ROOM)
-// ==========================================
-
-// Membuka modal dan merender isinya
-window.bukaModalArsip = function() {
-    document.getElementById("archiveModal").style.display = "flex";
-    renderDaftarArsip();
-}
-
-// Menggambar daftar tugas yang berstatus 'archived'
-window.renderDaftarArsip = function() {
-    const list = document.getElementById("archiveList");
-    if (!list) return;
-
-    // Filter dataTugas untuk mencari yang diarsipkan
-    const archivedTasks = dataTugas.filter(t => t.status === 'archived');
-
-    if (archivedTasks.length === 0) {
-        list.innerHTML = "<p style='color:gray; font-size:13px; text-align:center; padding: 32px 0;'>Pusat arsip kosong.</p>";
-        return;
-    }
-
-    list.innerHTML = "";
-    archivedTasks.forEach(tugas => {
-        let picDisplay = Array.isArray(tugas.pic) ? tugas.pic.join(', ') : (tugas.pic || "Tanpa PIC");
-        
-        list.innerHTML += `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #FAFAFA; border: 1px solid rgba(40,40,40,0.1); border-radius: 8px; transition: all 0.2s ease;">
-                <div>
-                    <div style="font-size: 14px; font-weight: 700; color: #282828; margin-bottom: 4px;">${tugas.judul}</div>
-                    <div style="font-size: 12px; color: rgba(40,40,40,0.55);">
-                        <span style="background: rgba(40,40,40,0.06); padding: 2px 6px; border-radius: 4px; font-weight: 700; color: #282828; font-size: 10px; text-transform: uppercase;">${tugas.kategori || 'LAINNYA'}</span> 
-                        &nbsp;•&nbsp; ${picDisplay}
-                    </div>
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button onclick="pulihkanTugas('${tugas.id}')" style="background: #282828; color: #CCFA59; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: opacity 0.2s ease;">Pulihkan</button>
-                    <button onclick="hapusPermanenTugas('${tugas.id}')" style="background: #FFFFFF; color: #E23B3B; border: 1px solid rgba(226,59,59,0.3); padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s ease;">Hapus Permanen</button>
-                </div>
-            </div>
-        `;
-    });
-}
-
-// Fungsi memulihkan tugas kembali ke kolom 'Done'
-window.pulihkanTugas = async function(id) {
-    await updateDoc(doc(db, "tugas", id), {
-        status: 'done' // Secara logika, tugas yang diarsipkan biasanya sudah selesai
-    });
-    catatLog("Memulihkan tugas dari arsip", "Restore");
-    renderDaftarArsip(); // Render ulang daftar di dalam modal
-}
-
-// Fungsi menghapus tugas dari database selamanya
-window.hapusPermanenTugas = async function(id) {
-    if(confirm("Yakin ingin menghapus tugas ini selamanya? Data akan hilang dari database dan laporan kinerja.")) {
-        let tugas = dataTugas.find(t => t.id === id);
-        await deleteDoc(doc(db, "tugas", id));
-        catatLog("Menghapus permanen tugas dari arsip", tugas ? tugas.judul : "Unknown");
-        renderDaftarArsip();
-    }
 }
