@@ -1259,3 +1259,75 @@ body {
     font-weight: 700;
     cursor: pointer;
 }
+
+/* --- Penambahan di bagian bawah style.css --- */
+
+.column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.icon-add-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    font-weight: 400;
+    color: rgba(40,40,40,0.4);
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+    transition: color 0.2s;
+}
+
+.icon-add-btn:hover { color: #282828; }
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-top: 24px;
+    margin-bottom: 32px !important; /* Jarak ekstra agar tidak tabrakan dengan tombol simpan */
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(40,40,40,0.1);
+}
+
+#commentsList {
+    display: flex;
+    flex-direction: column;
+    gap: 24px; /* Memberi jarak antar komentar agar tidak menumpuk */
+    margin-bottom: 24px;
+}
+
+.comment-item {
+    background: #FAFAFA;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(40,40,40,0.05);
+}
+
+.comment-text {
+    margin-top: 8px;
+    line-height: 1.6;
+    font-size: 13px;
+}
+
+.reply-form {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+/* Mention Box Position Fix */
+#mentionBox {
+    position: fixed; /* Menembus modal */
+    z-index: 1000000;
+}
