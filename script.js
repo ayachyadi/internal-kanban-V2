@@ -739,3 +739,26 @@ if (gameBoard) { // Pastikan script hanya jalan jika ada di halaman Tentang
     gameBoard.addEventListener("mousedown", lompat);
     gameBoard.addEventListener("touchstart", function(e){ e.preventDefault(); lompat(); });
 }
+
+// ==========================================
+// 15. KONTROL MENU HAMBURGER (MOBILE VIEW)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const navLinks = document.getElementById('navLinks');
+
+    if (hamburgerBtn && navLinks) {
+        // Toggle menu saat ikon hamburger diklik
+        hamburgerBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Mencegah klik bocor ke area lain
+            navLinks.classList.toggle('show-menu');
+        });
+
+        // Menutup menu jika user mengklik area kosong di luar menu
+        document.addEventListener('click', (e) => {
+            if (!navLinks.contains(e.target) && !hamburgerBtn.contains(e.target)) {
+                navLinks.classList.remove('show-menu');
+            }
+        });
+    }
+});
