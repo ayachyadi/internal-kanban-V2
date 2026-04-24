@@ -584,4 +584,84 @@ window.renderTabelLog = function() {
     const tbody = document.getElementById("logTableBody"); if (!tbody) return; tbody.innerHTML = "";
     dataLog.forEach(log => { tbody.innerHTML += `<tr><td>${log.waktu}</td><td>${dapatkanNamaTampil(log.pengguna)}</td><td>${log.aksi}</td><td><strong>${log.tugas}</strong></td></tr>`; });
 }
-window.renderLaporan = function() { /* (Fungsi laporan berjalan seperti biasa) */ }
+// ==========================================
+// 13. RENDER LAPORAN KINERJA (GABUNGAN)
+// ==========================================
+window.renderLaporan = function() {
+    const chartContainer = document.getElementById("categoryChart");
+    if (!chartContainer) return; 
+
+    const filterWaktu = document.getElementById("filterWaktu");
+    const nilaiFilter = filterWaktu ? filterWaktu.value : 'all';
+    const waktuSekarang = new Date();
+    
+    let selesai = 0, pending = 0, backlog = 0; 
+    let statsKategori = {};
+
+    const gabunganData = [...dataTugas, ...dataArsip];
+
+    gabunganData.forEach(tugas => {
+        let waktuDibuat = waktuSekarang;
+        // Mengambil timestamp dari ID tugas (misal: task_1623456789)
+        if (tugas.id && tugas.id.includes('_')) {
+            const extractedTime = parseInt(tugas.id.split('_')[1]);
+            if (!isNaN(extractedTime)) waktuDibuat = new Date(extractedTime);
+        }
+        
+        let masukHitungan = false;
+        if (nilaiFilter === 'all') masukHitungan = true;
+        else if (nilaiFilter === 'week') masukHitungan = waktuDibuat >= new Date(waktuSekarang.getTime() - (7 * 24 * 60 * 60 * 1000));
+        else if (nilaiFilter === 'month') masukHitungan = (waktuDibuat.getMonth() === waktuSekarang.getMonth() && waktuDibuat.getFullYear() === waktuSekarang.getFullYear());
+        else if (nilaiFilter === 'year') masukHitungan = (waktuDibuat.getFullYear() === waktuSekarang.getFullYear());
+
+        if (masukHitungan) {
+            // Logika Status
+            if (tugas.status === 'done' || tugas.status === 'review' || tugas.status === 'archived') selesai++;
+            else if (tugas.status === 'doing') pending++;
+            else if (tugas.status === 'todo') backlog++;
+
+            // Logika Kategori
+            let kat = tugas.kategori || "Lainnya";
+            if (!statsKategori[kat]) statsKategori[kat] = { total: 0, selesai: 0 };
+            statsKategori[kat].total++;
+            if (tugas.status === 'done' || tugas.status === 'review' || tugas.status === 'archived') statsKategori[kat].selesai++;
+        }
+    });
+
+    if(document.getElementById("countSelesai")) document.getElementById("countSelesai").innerText = selesai;
+    if(document.getElementById("countPending")) document.getElementById("countPending").innerText = pending;
+    if(document.getElementById("countBacklog")) document.getElementById("countBacklog").innerText = backlog;
+
+    let htmlGrafik = "";
+    let arrKategori = Object.keys(statsKategori).map(key => {
+        return { nama: key, persen: Math.round((statsKategori[key].selesai / statsKategori[key].total) * 100) };
+    }).sort((a, b) => b.persen - a.persen);
+
+    arrKategori.forEach(kat => {
+        let colorClass = kat.persen >= 80 ? 'acid' : (kat.persen >= 40 ? 'black' : 'grey');
+        let widthStyle = kat.persen === 0 ? "width: 5%;" : `width: ${kat.persen}%;`;
+        htmlGrafik += `<div class="progress-row"><div class="progress-label">${kat.nama}</div><div class="progress-track"><div class="progress-fill ${colorClass}" style="${widthStyle}"><span class="progress-text">${kat.persen}%</span></div></div></div>`;
+    });
+
+    if (arrKategori.length === 0) htmlGrafik = "<p style='color:gray; font-size:13px; text-align:center;'>Belum ada data tugas.</p>";
+    chartContainer.innerHTML = htmlGrafik;
+}
+
+window.downloadReportHTML = function() {
+    const filterDropdown = document.getElementById("filterWaktu");
+    const filterTeks = filterDropdown ? filterDropdown.options[filterDropdown.selectedIndex].text : "Semua Waktu";
+    const selesai = document.getElementById("countSelesai") ? document.getElementById("countSelesai").innerText : "0";
+    const pending = document.getElementById("countPending") ? document.getElementById("countPending").innerText : "0";
+    const backlog = document.getElementById("countBacklog") ? document.getElementById("countBacklog").innerText : "0";
+    
+    const chartContainer = document.getElementById("categoryChart");
+    const chartHTMLData = chartContainer ? chartContainer.innerHTML : "";
+
+    const htmlContent = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Sprout Report - ${filterTeks}</title><style>body { font-family: 'Segoe UI', Arial, sans-serif; background: #f7f7f7; color: #282828; padding: 40px; }.container { max-width: 900px; margin: 0 auto; background: transparent; }h1 { margin-bottom: 5px; } p { color: #666; margin-bottom: 30px; }.stats { display: flex; gap: 20px; margin-bottom: 40px; }.stat-box { flex: 1; padding: 24px; background: #fff; border-radius: 12px; border: 1px solid rgba(40,40,40,0.07); }.stat-box h2 { font-size: 40px; margin: 0 0 10px 0; }.chart-wrapper { background: #f7f7f7; padding-right: 40px; }.progress-row { display: flex; align-items: center; margin-bottom: 20px; }.progress-label { width: 160px; font-weight: bold; font-size: 14px; text-align: right; padding-right: 24px; }.progress-track { flex: 1; background-color: #FFFFFF; border: 1px solid rgba(40,40,40,0.07); border-radius: 8px; height: 48px; position: relative; overflow: hidden; }.progress-fill { height: 100%; border-radius: 8px; display: flex; align-items: center; justify-content: flex-end; padding-right: 20px; }.progress-fill.acid { background-color: #CCFA59; color: #282828; }.progress-fill.black { background-color: #282828; color: #CCFA59; }.progress-fill.grey { background-color: rgba(40,40,40,0.2); color: #282828; }.progress-text { font-weight: bold; font-size: 15px; }</style></head><body><div class="container"><h1>Laporan Kinerja Sprout</h1><p>Periode: <strong>${filterTeks}</strong> | Dihasilkan pada: ${new Date().toLocaleString('id-ID')}</p><div class="stats"><div class="stat-box" style="background:#282828; color:#CCFA59; border:none;"><h2>${selesai}</h2><span style="color: rgba(255,255,255,0.7); font-size:13px; font-weight:bold;">Tugas Selesai</span></div><div class="stat-box"><h2>${pending}</h2><span style="font-size:13px; font-weight:bold;">Pending (Doing)</span></div><div class="stat-box" style="border: 1px solid rgba(226,59,59,0.3);"><h2>${backlog}</h2><span style="color:#E23B3B; font-size:13px; font-weight:bold;">Backlog (To-Do)</span></div></div><h3 style="margin-bottom: 20px; font-size: 16px;">Tingkat Penyelesaian per Kategori</h3><div class="chart-wrapper">${chartHTMLData}</div></div></body></html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Sprout_Report_${filterTeks.replace(/\s+/g, '_')}.html`;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
