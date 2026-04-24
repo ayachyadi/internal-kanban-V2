@@ -1029,22 +1029,38 @@ body {
     cursor: text;
     min-height: 44px;
 }
+#selectedPics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.pic-tag {
+    display: inline-flex;
+    align-items: center;
+    background-color: #CCFA59; /* Sprout Acid */
+    color: #282828;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap; /* Mencegah nama terpotong jadi dua baris */
+}
+
+.multi-select-container input {
+    flex: 1;              /* Mengambil sisa ruang kosong di kanan */
+    min-width: 120px;     /* Mencegah input terlalu kecil */
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13px;
+    padding: 4px 0;
+}
 
 .multi-select-container:focus-within {
     border-color: #282828;
     background-color: #FFFFFF;
     box-shadow: 0 0 0 3px rgba(204,250,89,0.3);
-}
-
-.multi-select-container input {
-    border: none !important;
-    background: transparent !important;
-    outline: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    flex: 1;
-    min-width: 120px;
-    height: 24px;
 }
 
 /* Tag/Pill Nama PIC */
