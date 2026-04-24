@@ -1019,17 +1019,15 @@ body {
 ========================================= */
 .multi-select-container {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
+    flex-wrap: wrap;       /* Mengizinkan elemen turun ke baris baru jika penuh */
+    align-items: center;   /* Menyelaraskan tag dan teks di tengah secara vertikal */
+    gap: 8px;              /* Jarak antar tag dan input */
     padding: 8px 12px;
-    border: 1px solid rgba(40,40,40,0.15);
+    border: 1px solid rgba(40, 40, 40, 0.15);
     border-radius: 8px;
-    background-color: #FAFAFA;
-    min-height: 44px;
+    background-color: #FFFFFF;
     cursor: text;
-    transition: all 0.2s ease;
+    min-height: 44px;
 }
 
 .multi-select-container:focus-within {
