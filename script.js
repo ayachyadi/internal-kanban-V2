@@ -196,18 +196,17 @@ window.tandaiSemuaDibaca = async function() {
 }
 
 // ==========================================
-// 5. FITUR MENTION (@)
+// 5. FITUR MENTION (@) & NOTIFIKASI OTOMATIS
 // ==========================================
+
 window.deteksiMention = function(e) {
     const target = e.target;
-    
-    // Perbaikan 1: Ubah "spasi gaib" (non-breaking space) menjadi spasi normal
+    // Bersihkan karakter "spasi gaib" bawaan HTML agar pembacaan kata akurat
     const val = target.tagName === 'DIV' ? target.innerText.replace(/\u00A0/g, ' ') : target.value;
     const words = val.split(/[\s\n]+/);
     const lastWord = words[words.length - 1];
     const kotakSaran = document.getElementById('mentionBox');
 
-    // Jika kata terakhir diawali @
     if (lastWord.startsWith('@')) {
         const keyword = lastWord.substring(1).toLowerCase();
         const cocok = dapatkanDaftarMember().filter(m => m.toLowerCase().includes(keyword));
@@ -216,15 +215,33 @@ window.deteksiMention = function(e) {
             aktifMentionTarget = target;
             kotakSaran.innerHTML = '';
             cocok.forEach(m => {
-                kotakSaran.innerHTML += `<div class="suggestion-item" onclick="pilihMention('${m}', '${lastWord}')">${m}</div>`;
+                // PERBAIKAN 1: Gunakan onmousedown & preventDefault untuk mencegah glitch/kedip kehilangan fokus
+                kotakSaran.innerHTML += `<div class="suggestion-item" onmousedown="event.preventDefault(); pilihMention('${m}', '${lastWord}')">${m}</div>`;
             });
             
-            // Perbaikan 2: Gunakan position 'fixed' dan Z-index absolut agar menembus Modal
-            const rect = target.getBoundingClientRect();
             kotakSaran.style.position = 'fixed';
-            kotakSaran.style.top = (rect.bottom + 5) + 'px';
-            kotakSaran.style.left = rect.left + 'px';
-            kotakSaran.style.zIndex = '999999'; // Prioritas layer tertinggi
+            kotakSaran.style.zIndex = '999999';
+
+            // PERBAIKAN 2: Lacak kursor presisi jika di dalam Rich Text
+            if (target.tagName === 'DIV') {
+                const sel = window.getSelection();
+                if (sel.rangeCount > 0) {
+                    const range = sel.getRangeAt(0).cloneRange();
+                    range.collapse(false); // Mengambil titik kursor saat ini
+                    const rect = range.getBoundingClientRect();
+                    
+                    if (rect.bottom > 0) { // Pastikan koordinat valid
+                        kotakSaran.style.top = (rect.bottom + 5) + 'px';
+                        kotakSaran.style.left = rect.left + 'px';
+                    }
+                }
+            } else {
+                // Fallback untuk input teks biasa (Komentar)
+                const rect = target.getBoundingClientRect();
+                kotakSaran.style.top = (rect.bottom + 5) + 'px';
+                kotakSaran.style.left = rect.left + 'px';
+            }
+            
             kotakSaran.style.display = 'block';
         } else {
             kotakSaran.style.display = 'none';
@@ -232,6 +249,30 @@ window.deteksiMention = function(e) {
     } else {
         kotakSaran.style.display = 'none';
     }
+}
+
+window.pilihMention = function(namaMember, keywordLama) {
+    if(!aktifMentionTarget) return;
+    
+    if (aktifMentionTarget.tagName === 'DIV') {
+        let teksMentionHTML = `<strong style="color:#CCFA59; background:#282828; padding:2px 6px; border-radius:4px;">@${namaMember}</strong>&nbsp;`;
+        
+        // Mempertahankan struktur DOM dengan rapi
+        aktifMentionTarget.innerHTML = aktifMentionTarget.innerHTML.replace(keywordLama, teksMentionHTML);
+        
+        // Kembalikan kursor ke titik akhir setelah tag HTML disuntikkan
+        let range = document.createRange();
+        let sel = window.getSelection();
+        range.selectNodeContents(aktifMentionTarget);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else {
+        aktifMentionTarget.value = aktifMentionTarget.value.replace(keywordLama, "@" + namaMember + " ");
+    }
+    
+    document.getElementById('mentionBox').style.display = 'none';
+    aktifMentionTarget.focus();
 }
 
 window.pilihMention = function(namaMember, keywordLama) {
