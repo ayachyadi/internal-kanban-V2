@@ -89,14 +89,16 @@ body {
 .column {
     display: flex;
     flex-direction: column;
-    background-color: #FFFFFF; /* Sesuaikan dengan warna background kontainer Anda */
-    border: 1px solid rgba(40, 40, 40, 0.07); /* Border halus Sprout */
+    background-color: #FFFFFF;
+    border: 1px solid rgba(40, 40, 40, 0.07);
     border-radius: 12px;
-    padding: 16px 16px 8px 16px; /* Padding bawah dikurangi sedikit untuk scrollbar */
-    min-width: 300px;
-    max-width: 300px;
+    padding: 16px 16px 8px 16px;
     
-    /* KUNCI UTAMA: Membatasi tinggi kolom agar tidak jebol ke bawah layar */
+    /* PERUBAHAN: Membagi ruang secara otomatis dan merata */
+    flex: 1; 
+    min-width: 260px; /* Batas aman agar tidak terlalu gepeng di layar kecil */
+    max-width: none;  /* Menghapus batas 300px yang lama */
+    
     max-height: calc(100vh - 140px); 
 }
 
@@ -197,11 +199,21 @@ body {
 }
 
 .card h4 {
-    font-size: 15px;
+    font-size: 14px; 
+    line-height: 1.4;
+    margin-top: 10px;
+    margin-bottom: 8px;
     font-weight: 700;
     color: #282828;
-    margin-bottom: 6px;
-    line-height: 1.4;
+    
+    /* PERUBAHAN: Memotong teks maksimal 2 baris dengan '...' */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* word-break memastikan kata yang sangat panjang ikut terpotong */
+    word-break: break-word; 
 }
 
 .card p {
