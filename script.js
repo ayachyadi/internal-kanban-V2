@@ -657,3 +657,67 @@ window.arsipTugasSatuan = async function(id) {
         catatLog("Mengarsipkan kartu", tugas.judul);
     }
 }
+
+// ==========================================
+// 12. PUSAT ARSIP (ARCHIVE ROOM)
+// ==========================================
+
+// Membuka modal dan merender isinya
+window.bukaModalArsip = function() {
+    document.getElementById("archiveModal").style.display = "flex";
+    renderDaftarArsip();
+}
+
+// Menggambar daftar tugas yang berstatus 'archived'
+window.renderDaftarArsip = function() {
+    const list = document.getElementById("archiveList");
+    if (!list) return;
+
+    // Filter dataTugas untuk mencari yang diarsipkan
+    const archivedTasks = dataTugas.filter(t => t.status === 'archived');
+
+    if (archivedTasks.length === 0) {
+        list.innerHTML = "<p style='color:gray; font-size:13px; text-align:center; padding: 32px 0;'>Pusat arsip kosong.</p>";
+        return;
+    }
+
+    list.innerHTML = "";
+    archivedTasks.forEach(tugas => {
+        let picDisplay = Array.isArray(tugas.pic) ? tugas.pic.join(', ') : (tugas.pic || "Tanpa PIC");
+        
+        list.innerHTML += `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #FAFAFA; border: 1px solid rgba(40,40,40,0.1); border-radius: 8px; transition: all 0.2s ease;">
+                <div>
+                    <div style="font-size: 14px; font-weight: 700; color: #282828; margin-bottom: 4px;">${tugas.judul}</div>
+                    <div style="font-size: 12px; color: rgba(40,40,40,0.55);">
+                        <span style="background: rgba(40,40,40,0.06); padding: 2px 6px; border-radius: 4px; font-weight: 700; color: #282828; font-size: 10px; text-transform: uppercase;">${tugas.kategori || 'LAINNYA'}</span> 
+                        &nbsp;•&nbsp; ${picDisplay}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="pulihkanTugas('${tugas.id}')" style="background: #282828; color: #CCFA59; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: opacity 0.2s ease;">Pulihkan</button>
+                    <button onclick="hapusPermanenTugas('${tugas.id}')" style="background: #FFFFFF; color: #E23B3B; border: 1px solid rgba(226,59,59,0.3); padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s ease;">Hapus Permanen</button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+// Fungsi memulihkan tugas kembali ke kolom 'Done'
+window.pulihkanTugas = async function(id) {
+    await updateDoc(doc(db, "tugas", id), {
+        status: 'done' // Secara logika, tugas yang diarsipkan biasanya sudah selesai
+    });
+    catatLog("Memulihkan tugas dari arsip", "Restore");
+    renderDaftarArsip(); // Render ulang daftar di dalam modal
+}
+
+// Fungsi menghapus tugas dari database selamanya
+window.hapusPermanenTugas = async function(id) {
+    if(confirm("Yakin ingin menghapus tugas ini selamanya? Data akan hilang dari database dan laporan kinerja.")) {
+        let tugas = dataTugas.find(t => t.id === id);
+        await deleteDoc(doc(db, "tugas", id));
+        catatLog("Menghapus permanen tugas dari arsip", tugas ? tugas.judul : "Unknown");
+        renderDaftarArsip();
+    }
+}
