@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tentang Sistem - Task Tracker</title>
+    <title>Tentang - Sprout Task Tracker</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -17,20 +17,71 @@
             <a href="tentang.html" class="active">Tentang</a>
             
             <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 16px 0 32px;"></div>
-            
             <button onclick="prosesLogout()" style="margin-left: 0;">Keluar</button>
             
-            <a href="profile.html" class="nav-profile-link">
+            <a href="profile.html" class="nav-profile-link" style="position: relative;">
                 <img id="navProfileIcon" src="" alt="Profil">
                 <span id="notifBadge" class="notif-badge" style="display: none;"></span>
             </a>
         </div>
     </nav>
 
-    <main class="content-page">
-        <h1>Tentang Sistem Ini</h1>
-        <p>Sistem ini adalah Minimum Viable Product (MVP) untuk penggunaan internal.</p>
-        <p>Dibuat menggunakan HTML, CSS, dan JavaScript murni dengan Firebase Authentication.</p>
+    <main class="content-page" style="max-width: 800px; margin: 0 auto;">
+        <h1 style="margin-bottom: 8px; font-size: 32px; letter-spacing: -1px; text-align: center;">Tentang Sprout</h1>
+        <p style="color: gray; margin-bottom: 32px; text-align: center;">Ruang rekreasi dan panduan manual sistem.</p>
+
+        <div class="profile-card" style="padding: 24px; margin-bottom: 32px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px;">
+                <div>
+                    <h3 style="font-size: 18px; margin-bottom: 4px;">🎮 Sprout Runner</h3>
+                    <p style="font-size: 12px; color: gray;">Tekan <strong>SPASI</strong> atau <strong>Klik Layar</strong> untuk melompat.</p>
+                </div>
+                <div style="font-size: 14px; font-weight: bold; color: #282828;">Skor: <span id="gameScore">0</span></div>
+            </div>
+            
+            <div id="gameBoard">
+                <div id="sproutChar"></div>
+                <div id="cactusObs"></div>
+                <div id="gameOverMsg">
+                    <span style="font-size: 20px; color: #E23B3B;">Game Over!</span><br>
+                    <span style="font-size: 12px; color: #282828;">Klik untuk mulai lagi</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-card" style="padding: 32px; text-align: left; line-height: 1.6;">
+            <h2 style="font-size: 24px; margin-bottom: 24px; border-bottom: 2px solid #CCFA59; display: inline-block; padding-bottom: 8px;">Dokumentasi Sistem Sprout V1.0</h2>
+            
+            <div style="margin-bottom: 24px;">
+                <h3 style="font-size: 16px; margin-bottom: 8px;">1. Arsitektur Database (Firebase Cloud)</h3>
+                <p style="font-size: 13px; color: #555;">Sprout dibangun menggunakan arsitektur <em>serverless</em> Google Firebase. Perubahan data terjadi secara <em>Real-Time</em> (sinkronisasi instan ke seluruh pengguna tanpa perlu me-refresh halaman). Data dipisah ke dalam beberapa koleksi khusus (Tugas, Arsip, Profil, Notifikasi, Log) untuk menghemat biaya baca (*read cost*).</p>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <h3 style="font-size: 16px; margin-bottom: 8px;">2. Keamanan & Hak Akses (RBAC)</h3>
+                <p style="font-size: 13px; color: #555;">Sistem menggunakan 3 lapis keamanan peran (Role-Based Access Control):</p>
+                <ul style="font-size: 13px; color: #555; margin-left: 20px; margin-top: 8px;">
+                    <li><strong>👑 Admin:</strong> Pemilik sistem. Akses penuh ke Papan, Penghapusan Permanen Arsip, Manajemen Tim, dan Pengaturan Kategori Global.</li>
+                    <li><strong>✍️ Editor:</strong> Anggota tim inti. Bisa membuat tugas, memindahkan kartu (*drag & drop*), dan berbalas komentar. Tidak bisa menghapus tugas.</li>
+                    <li><strong>👁️ Viewer:</strong> Akses pantau (*Read-Only*). Antarmuka akan terkunci (tombol hilang, *drag* dinonaktifkan) untuk mencegah perubahan data.</li>
+                </ul>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <h3 style="font-size: 16px; margin-bottom: 8px;">3. Fitur Komunikasi (@Mention)</h3>
+                <p style="font-size: 13px; color: #555;">Sprout dilengkapi mesin pemindai *Rich Text*. Jika pengguna mengetik simbol <strong>@</strong> pada kotak deskripsi atau komentar, kotak saran (*autocomplete*) akan muncul. Menyebut seseorang akan otomatis memicu pengiriman notifikasi *real-time* dengan indikator titik merah di navigasi penerima.</p>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <h3 style="font-size: 16px; margin-bottom: 8px;">4. Pusat Arsip Terpisah</h3>
+                <p style="font-size: 13px; color: #555;">Tugas yang telah selesai (Done) dapat dipindahkan ke Pusat Arsip. Proses ini memindahkan data antar-koleksi *database* secara fisik. Hal ini membuat papan utama (*Board*) memuat jauh lebih cepat karena terbebas dari tumpukan ratusan data historis, namun tugas arsip tetap terhitung dalam Laporan Analitik.</p>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <h3 style="font-size: 16px; margin-bottom: 8px;">5. Laporan & Ekspor Kinerja</h3>
+                <p style="font-size: 13px; color: #555;">Mesin laporan secara dinamis menghitung *Progress Bar* persentase penyelesaian tugas berdasarkan Kategori dan Filter Waktu (Mingguan/Bulanan/Tahunan). Hasil laporan dapat diekspor menjadi dokumen HTML statis tunggal untuk keperluan *printing* atau presentasi.</p>
+            </div>
+        </div>
     </main>
 
     <script type="module" src="script.js"></script>
