@@ -49,27 +49,32 @@
 
         <div class="board">
             <div class="column" ondrop="drop(event, 'todo')" ondragover="allowDrop(event)">
-                <div class="col-header"><h3>To-Do</h3></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; font-size: 16px;">To-Do</h3>
+                    <button onclick="bukaModalTambah('todo')" style="background: none; border: none; font-size: 20px; cursor: pointer; color: rgba(40,40,40,0.5); transition: color 0.2s;" onmouseover="this.style.color='#282828'" onmouseout="this.style.color='rgba(40,40,40,0.5)'" title="Tambah Tugas">+</button>
+                </div>
                 <div class="task-list" id="list-todo"></div>
-                <button class="add-task-btn" onclick="bukaModalTambah('todo')">+ Tambah Tugas</button>
             </div>
 
             <div class="column" ondrop="drop(event, 'doing')" ondragover="allowDrop(event)">
-                <div class="col-header"><h3>Doing</h3></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; font-size: 16px;">Doing</h3>
+                    <button onclick="bukaModalTambah('doing')" style="background: none; border: none; font-size: 20px; cursor: pointer; color: rgba(40,40,40,0.5); transition: color 0.2s;" onmouseover="this.style.color='#282828'" onmouseout="this.style.color='rgba(40,40,40,0.5)'" title="Tambah Tugas">+</button>
+                </div>
                 <div class="task-list" id="list-doing"></div>
-                <button class="add-task-btn" onclick="bukaModalTambah('doing')">+ Tambah Tugas</button>
             </div>
 
             <div class="column" ondrop="drop(event, 'review')" ondragover="allowDrop(event)">
-                <div class="col-header"><h3>Review</h3></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; font-size: 16px;">Review</h3>
+                </div>
                 <div class="task-list" id="list-review"></div>
             </div>
 
             <div class="column" ondrop="drop(event, 'done')" ondragover="allowDrop(event)">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h3 style="margin: 0; border: none; padding: 0;">Done</h3>
-                    <button onclick="arsipTugasSelesai()" style="background: none; border: none; color: #282828; font-size: 10px; font-weight: 700; cursor: pointer; text-decoration: underline; opacity: 0.5;">Arsip Semua</button>
-                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; font-size: 16px;">Done</h3>
+                    </div>
                 <div class="task-list" id="list-done"></div>
             </div>
         </div>
