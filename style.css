@@ -995,6 +995,7 @@ body {
     display: flex;
     align-items: center;
     text-decoration: none;
+    position: relative;
 }
 
 #navProfileIcon {
@@ -1113,13 +1114,15 @@ body {
 ========================================= */
 .notif-badge {
     position: absolute;
-    top: -2px;
-    right: -2px;
+    top: 0; /* Sesuaikan posisi agar pas di pojok foto */
+    right: 0;
     width: 12px;
     height: 12px;
-    background-color: #E23B3B; /* Merah Alert Sprout */
-    border: 2px solid #282828; /* Outline hitam pekat */
+    background-color: #E23B3B; 
+    border: 2px solid #282828; 
     border-radius: 50%;
+    z-index: 10; /* Pastikan berada di atas gambar */
+    pointer-events: none; /* Agar tidak menghalangi klik ke profil */
     animation: pulseNotif 2s infinite;
 }
 
