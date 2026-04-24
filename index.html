@@ -13,11 +13,10 @@
         <div class="nav-links">
             <a href="index.html" class="active">Papan Kanban</a>
             <a href="log.html">Log Aktivitas</a>
+            <a href="report.html">Laporan</a>
             <a href="tentang.html">Tentang</a>
-            
             <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 16px 0 32px;"></div>
             <button onclick="prosesLogout()" style="margin-left: 0;">Keluar</button>
-            
             <a href="profile.html" class="nav-profile-link" style="position: relative;">
                 <img id="navProfileIcon" src="" alt="Profil">
                 <span id="notifBadge" class="notif-badge" style="display: none;"></span>
@@ -26,7 +25,6 @@
     </nav>
 
     <main class="board-container">
-        
         <div class="board-controls" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div style="display: flex; align-items: center; gap: 12px;">
                 <span class="control-label">Urutkan berdasarkan:</span>
@@ -36,45 +34,33 @@
                     <option value="category">Kategori</option>
                 </select>
             </div>
-
             <div style="display: flex; gap: 12px;">
-                <button onclick="bukaModalArsip()" style="background-color: transparent; color: #282828; border: 1px solid rgba(40,40,40,0.15); padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s ease;">
-                    Lihat Arsip
-                </button>
-                <button onclick="window.location.href='report.html'" style="background-color: #CCFA59; color: #282828; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity 0.2s ease;">
-                    Lihat Laporan Kinerja →
-                </button>
+                <button onclick="bukaModalArsip()" style="background-color: transparent; color: #282828; border: 1px solid rgba(40,40,40,0.15); padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">Lihat Arsip</button>
+                <button onclick="window.location.href='report.html'" style="background-color: #CCFA59; color: #282828; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">Laporan Kinerja →</button>
             </div>
         </div>
 
         <div class="board">
             <div class="column" ondrop="drop(event, 'todo')" ondragover="allowDrop(event)">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h3 style="margin: 0; font-size: 16px;">To-Do</h3>
-                    <button onclick="bukaModalTambah('todo')" style="background: none; border: none; font-size: 20px; cursor: pointer; color: rgba(40,40,40,0.5); transition: color 0.2s;" onmouseover="this.style.color='#282828'" onmouseout="this.style.color='rgba(40,40,40,0.5)'" title="Tambah Tugas">+</button>
+                <div class="column-header">
+                    <h3>To-Do</h3>
+                    <button class="icon-add-btn" onclick="bukaModalTambah('todo')" title="Tambah Tugas">+</button>
                 </div>
                 <div class="task-list" id="list-todo"></div>
             </div>
-
             <div class="column" ondrop="drop(event, 'doing')" ondragover="allowDrop(event)">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h3 style="margin: 0; font-size: 16px;">Doing</h3>
-                    <button onclick="bukaModalTambah('doing')" style="background: none; border: none; font-size: 20px; cursor: pointer; color: rgba(40,40,40,0.5); transition: color 0.2s;" onmouseover="this.style.color='#282828'" onmouseout="this.style.color='rgba(40,40,40,0.5)'" title="Tambah Tugas">+</button>
+                <div class="column-header">
+                    <h3>Doing</h3>
+                    <button class="icon-add-btn" onclick="bukaModalTambah('doing')" title="Tambah Tugas">+</button>
                 </div>
                 <div class="task-list" id="list-doing"></div>
             </div>
-
             <div class="column" ondrop="drop(event, 'review')" ondragover="allowDrop(event)">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h3 style="margin: 0; font-size: 16px;">Review</h3>
-                </div>
+                <div class="column-header"><h3>Review</h3></div>
                 <div class="task-list" id="list-review"></div>
             </div>
-
             <div class="column" ondrop="drop(event, 'done')" ondragover="allowDrop(event)">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h3 style="margin: 0; font-size: 16px;">Done</h3>
-                    </div>
+                <div class="column-header"><h3>Done</h3></div>
                 <div class="task-list" id="list-done"></div>
             </div>
         </div>
@@ -83,67 +69,57 @@
     <div id="cardModal" class="modal">
         <div class="modal-content modal-large">
             <span class="close-btn" onclick="tutupModal()">&times;</span>
-            <h2 id="modalHeader">Tambah Tugas</h2>
+            <h2 id="modalHeader">Detail Tugas</h2>
             <form id="taskForm" onsubmit="simpanTugas(event)">
                 <div class="input-group">
                     <label>Judul Tugas</label>
                     <input type="text" id="inputTitle" required>
                 </div>
-                
                 <div class="form-row">
                     <div class="input-group">
                         <label>Kategori</label>
-                        <select id="inputCategory" required class="sprout-select">
-                            </select>
+                        <select id="inputCategory" required class="sprout-select"></select>
                     </div>
                     <div class="input-group">
                         <label>Tenggat Waktu</label>
                         <input type="date" id="inputDue" required>
                     </div>
                 </div>
-
                 <div class="input-group" style="position: relative;">
-                    <label>PIC (Bisa lebih dari satu)</label>
+                    <label>PIC</label>
                     <div class="multi-select-container" onclick="document.getElementById('inputPerson').focus()">
-                        <div id="selectedPics" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
-                        <input type="text" id="inputPerson" autocomplete="off" placeholder="Ketik nama PIC...">
+                        <div id="selectedPics"></div>
+                        <input type="text" id="inputPerson" autocomplete="off" placeholder="Ketik nama...">
                     </div>
                     <div id="picSuggestions" class="suggestions-box" style="display: none;"></div>
                 </div>
-
                 <div class="input-group">
                     <label>Deskripsi Tugas</label>
                     <div class="rich-text-toolbar">
-                        <button type="button" onclick="formatText('bold')"><b>B</b></button>
-                        <button type="button" onclick="formatText('italic')"><i>I</i></button>
-                        <button type="button" onclick="formatText('underline')"><u>U</u></button>
+                        <button type="button" onclick="formatText('bold')">B</button>
+                        <button type="button" onclick="formatText('italic')">I</button>
+                        <button type="button" onclick="formatText('underline')">U</button>
                         <div class="divider"></div>
                         <button type="button" onclick="formatText('insertUnorderedList')">• List</button>
-                        <button type="button" onclick="formatText('insertOrderedList')">1. List</button>
-                        <div class="divider"></div>
                         <button type="button" onclick="tambahLink()">🔗 Link</button>
-                        <button type="button" onclick="tambahGambar()">🖼 Gambar</button>
                     </div>
                     <div id="inputDesc" contenteditable="true" class="rich-text-editor" onkeyup="deteksiMention(event)"></div>
                 </div>
-
                 <label class="checkbox-container">
                     <input type="checkbox" id="inputDoneCheck">
                     <span class="checkmark"></span>
-                    Tandai tugas ini telah selesai dikerjakan (Pindah ke Review)
+                    Tandai tugas ini telah selesai dikerjakan (Review)
                 </label>
-
                 <div class="form-actions">
-                    <button type="button" id="btnDelete" class="delete-btn" onclick="hapusTugas()" style="display: none;">Hapus Tugas</button>
-                    <button type="submit" class="save-btn">Simpan Tugas</button>
+                    <button type="button" id="btnDelete" class="delete-btn" onclick="hapusTugas()">Hapus</button>
+                    <button type="submit" class="save-btn">Simpan Perubahan</button>
                 </div>
             </form>
-
-            <div id="commentSection" style="display: none; margin-top: 32px; border-top: 1px solid rgba(40,40,40,0.1); padding-top: 24px;">
+            <div id="commentSection">
                 <h3>Komentar Tim</h3>
-                <div id="commentsList" style="margin-bottom: 16px;"></div>
+                <div id="commentsList"></div>
                 <div class="add-comment-box">
-                    <input type="text" id="inputComment" placeholder="Ketik @ untuk mention tim..." onkeyup="deteksiMention(event)">
+                    <input type="text" id="inputComment" placeholder="Ketik @ untuk tag..." onkeyup="deteksiMention(event)">
                     <button type="button" onclick="simpanKomentar()">Kirim</button>
                 </div>
             </div>
@@ -153,16 +129,13 @@
     <div id="archiveModal" class="modal">
         <div class="modal-content modal-large">
             <span class="close-btn" onclick="document.getElementById('archiveModal').style.display='none'">&times;</span>
-            <h2 style="font-size: 24px; font-weight: 700; color: #282828; margin-bottom: 8px; letter-spacing: -0.5px;">Pusat Arsip</h2>
-            <p style="font-size: 13px; color: rgba(40,40,40,0.55); margin-bottom: 24px;">Tugas yang ada di sini tidak tampil di papan utama, tetapi tetap terhitung di Laporan.</p>
-            
-            <div id="archiveList" style="display: flex; flex-direction: column; gap: 12px; max-height: 60vh; overflow-y: auto; padding-right: 8px;">
-                </div>
+            <h2>Pusat Arsip</h2>
+            <p style="font-size: 13px; color: gray; margin-bottom: 24px;">Data historis yang tidak aktif di papan utama.</p>
+            <div id="archiveList"></div>
         </div>
     </div>
 
-    <div id="mentionBox" class="suggestions-box" style="display: none; position: absolute; z-index: 9999; width: 200px;"></div>
-
+    <div id="mentionBox" class="suggestions-box" style="display: none;"></div>
     <script type="module" src="script.js"></script>
 </body>
 </html>
