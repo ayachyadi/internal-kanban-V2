@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sprout - Task Tracker</title>
+    <title>Sprout Task Tracker</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -13,14 +13,12 @@
         <div class="nav-links">
             <a href="index.html" class="active">Papan Kanban</a>
             <a href="log.html">Log Aktivitas</a>
-            <a href="report.html">Laporan</a>
             <a href="tentang.html">Tentang</a>
             
             <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 16px 0 32px;"></div>
-            
             <button onclick="prosesLogout()" style="margin-left: 0;">Keluar</button>
             
-            <a href="profile.html" class="nav-profile-link">
+            <a href="profile.html" class="nav-profile-link" style="position: relative;">
                 <img id="navProfileIcon" src="" alt="Profil">
                 <span id="notifBadge" class="notif-badge" style="display: none;"></span>
             </a>
@@ -28,8 +26,8 @@
     </nav>
 
     <main class="board-container">
+        
         <div class="board-controls" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            
             <div style="display: flex; align-items: center; gap: 12px;">
                 <span class="control-label">Urutkan berdasarkan:</span>
                 <select id="sortSelect" class="sprout-select" onchange="renderPapanKanban()">
@@ -43,33 +41,35 @@
                 <button onclick="bukaModalArsip()" style="background-color: transparent; color: #282828; border: 1px solid rgba(40,40,40,0.15); padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s ease;">
                     Lihat Arsip
                 </button>
-
                 <button onclick="window.location.href='report.html'" style="background-color: #CCFA59; color: #282828; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity 0.2s ease;">
                     Lihat Laporan Kinerja →
                 </button>
             </div>
-
         </div>
 
         <div class="board">
             <div class="column" ondrop="drop(event, 'todo')" ondragover="allowDrop(event)">
-                <h3>To-Do</h3>
-                <button class="add-btn" onclick="bukaModalTambah('todo')">+ Tambah Tugas</button>
+                <div class="col-header"><h3>To-Do</h3></div>
                 <div class="task-list" id="list-todo"></div>
+                <button class="add-task-btn" onclick="bukaModalTambah('todo')">+ Tambah Tugas</button>
             </div>
 
             <div class="column" ondrop="drop(event, 'doing')" ondragover="allowDrop(event)">
-                <h3>Doing</h3>
+                <div class="col-header"><h3>Doing</h3></div>
                 <div class="task-list" id="list-doing"></div>
+                <button class="add-task-btn" onclick="bukaModalTambah('doing')">+ Tambah Tugas</button>
             </div>
 
             <div class="column" ondrop="drop(event, 'review')" ondragover="allowDrop(event)">
-                <h3>Review</h3>
+                <div class="col-header"><h3>Review</h3></div>
                 <div class="task-list" id="list-review"></div>
             </div>
 
             <div class="column" ondrop="drop(event, 'done')" ondragover="allowDrop(event)">
-                <h3>Done</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="margin: 0; border: none; padding: 0;">Done</h3>
+                    <button onclick="arsipTugasSelesai()" style="background: none; border: none; color: #282828; font-size: 10px; font-weight: 700; cursor: pointer; text-decoration: underline; opacity: 0.5;">Arsip Semua</button>
+                </div>
                 <div class="task-list" id="list-done"></div>
             </div>
         </div>
@@ -78,75 +78,74 @@
     <div id="cardModal" class="modal">
         <div class="modal-content modal-large">
             <span class="close-btn" onclick="tutupModal()">&times;</span>
-            <h2 id="modalHeader">Tambah Tugas Baru</h2>
-            
+            <h2 id="modalHeader">Tambah Tugas</h2>
             <form id="taskForm" onsubmit="simpanTugas(event)">
-                
                 <div class="input-group">
                     <label>Judul Tugas</label>
                     <input type="text" id="inputTitle" required>
                 </div>
-
-                <div class="input-group-row">
+                
+                <div class="form-row">
                     <div class="input-group">
-    <label>Kategori</label>
-    <select id="inputCategory" required class="sprout-select">
-        </select>
-</div>
+                        <label>Kategori</label>
+                        <select id="inputCategory" required class="sprout-select">
+                            </select>
+                    </div>
                     <div class="input-group">
                         <label>Tenggat Waktu</label>
-                        <input type="date" id="inputDue">
-                    </div>
-                    <div class="input-group" style="position: relative;">
-                        <label>PIC (Bisa lebih dari satu)</label>
-                        <div class="multi-select-container" onclick="document.getElementById('inputPerson').focus()">
-                            <div id="selectedPics" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
-                            <input type="text" id="inputPerson" autocomplete="off" placeholder="Ketik nama PIC...">
-                        </div>
-                        <div id="picSuggestions" class="suggestions-box" style="display: none;"></div>
+                        <input type="date" id="inputDue" required>
                     </div>
                 </div>
 
+                <div class="input-group" style="position: relative;">
+                    <label>PIC (Bisa lebih dari satu)</label>
+                    <div class="multi-select-container" onclick="document.getElementById('inputPerson').focus()">
+                        <div id="selectedPics" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+                        <input type="text" id="inputPerson" autocomplete="off" placeholder="Ketik nama PIC...">
+                    </div>
+                    <div id="picSuggestions" class="suggestions-box" style="display: none;"></div>
+                </div>
+
                 <div class="input-group">
-                    <label>Deskripsi Detail</label>
+                    <label>Deskripsi Tugas</label>
                     <div class="rich-text-toolbar">
                         <button type="button" onclick="formatText('bold')"><b>B</b></button>
                         <button type="button" onclick="formatText('italic')"><i>I</i></button>
                         <button type="button" onclick="formatText('underline')"><u>U</u></button>
-                        <button type="button" onclick="tambahLink()">Link</button>
-                        <button type="button" onclick="tambahGambar()">Gambar</button>
+                        <div class="divider"></div>
+                        <button type="button" onclick="formatText('insertUnorderedList')">• List</button>
+                        <button type="button" onclick="formatText('insertOrderedList')">1. List</button>
+                        <div class="divider"></div>
+                        <button type="button" onclick="tambahLink()">🔗 Link</button>
+                        <button type="button" onclick="tambahGambar()">🖼 Gambar</button>
                     </div>
-                    <div id="inputDesc" class="rich-text-editor" contenteditable="true" placeholder="Tulis deskripsi tugas di sini..."></div>
+                    <div id="inputDesc" contenteditable="true" class="rich-text-editor" onkeyup="deteksiMention(event)"></div>
                 </div>
 
-                <div class="checklist-box">
-                    <label class="checkbox-container">
-                        <input type="checkbox" id="inputDoneCheck">
-                        <span class="checkmark"></span>
-                        Tandai Selesai (Otomatis pindah ke Review)
-                    </label>
-                </div>
-                
-                <div class="modal-actions">
-                    <button type="button" id="btnDelete" class="delete-btn" onclick="hapusTugas()" style="display: none;">Hapus</button>
-                    <button type="submit" class="save-btn">Simpan Perubahan</button>
+                <label class="checkbox-container">
+                    <input type="checkbox" id="inputDoneCheck">
+                    <span class="checkmark"></span>
+                    Tandai tugas ini telah selesai dikerjakan (Pindah ke Review)
+                </label>
+
+                <div class="form-actions">
+                    <button type="button" id="btnDelete" class="delete-btn" onclick="hapusTugas()" style="display: none;">Hapus Tugas</button>
+                    <button type="submit" class="save-btn">Simpan Tugas</button>
                 </div>
             </form>
 
-            <div id="commentSection" class="comments-section" style="display: none;">
+            <div id="commentSection" style="display: none; margin-top: 32px; border-top: 1px solid rgba(40,40,40,0.1); padding-top: 24px;">
                 <h3>Komentar Tim</h3>
-                <div class="comments-list" id="commentsList">
-                    </div>
+                <div id="commentsList" style="margin-bottom: 16px;"></div>
                 <div class="add-comment-box">
-                    <input type="text" id="inputComment" placeholder="Tambahkan komentar...">
+                    <input type="text" id="inputComment" placeholder="Ketik @ untuk mention tim..." onkeyup="deteksiMention(event)">
                     <button type="button" onclick="simpanKomentar()">Kirim</button>
                 </div>
             </div>
-
         </div>
     </div>
 
-<div id="archiveModal" class="modal">
+    <div id="archiveModal" class="modal">
         <div class="modal-content modal-large">
             <span class="close-btn" onclick="document.getElementById('archiveModal').style.display='none'">&times;</span>
             <h2 style="font-size: 24px; font-weight: 700; color: #282828; margin-bottom: 8px; letter-spacing: -0.5px;">Pusat Arsip</h2>
@@ -156,6 +155,8 @@
                 </div>
         </div>
     </div>
+
+    <div id="mentionBox" class="suggestions-box" style="display: none; position: absolute; z-index: 9999; width: 200px;"></div>
 
     <script type="module" src="script.js"></script>
 </body>
