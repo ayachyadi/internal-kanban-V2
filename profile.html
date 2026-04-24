@@ -11,16 +11,26 @@
 <body>
     <nav class="navbar">
         <h2>Sprout <span>Task Tracker</span></h2>
-        <div class="nav-links">
+        
+        <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </button>
+
+        <div class="nav-links" id="navLinks">
             <a href="index.html">Papan Kanban</a>
             <a href="log.html">Log Aktivitas</a>
             <a href="report.html">Laporan</a>
             <a href="tentang.html">Tentang</a>
             
-            <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 16px 0 32px;"></div>
-            <button onclick="prosesLogout()" style="margin-left: 0;">Keluar</button>
+            <div class="nav-divider"></div>
             
-            <a href="profile.html" class="nav-profile-link active" style="position: relative;">
+            <button onclick="prosesLogout()" class="logout-btn">Keluar</button>
+            
+            <a href="profile.html" class="nav-profile-link" style="position: relative;">
                 <img id="navProfileIcon" src="" alt="Profil">
                 <span id="notifBadge" class="notif-badge" style="display: none;"></span>
             </a>
