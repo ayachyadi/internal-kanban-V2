@@ -187,7 +187,13 @@ window.renderPapanKanban = function() {
                 <div class="card" ${dragAttr} onclick="bukaModalEdit('${t.id}')" id="${t.id}">
                     <div style="display: flex; justify-content: space-between;">
                         <span class="card-category">${t.kategori || "Lainnya"}</span>
-                        <button class="card-archive-btn" onclick="event.stopPropagation(); arsipTugasSatuan('${t.id}')">📦</button>
+                        <button class="card-archive-btn" onclick="event.stopPropagation(); arsipTugasSatuan('${t.id}')" title="Arsipkan">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="21 8 21 21 3 21 3 8"></polyline>
+        <rect x="1" y="3" width="22" height="5"></rect>
+        <line x1="10" y1="12" x2="14" y2="12"></line>
+    </svg>
+</button>
                     </div>
                     <h4>${t.judul}</h4>
                     <p>${pic} • ${t.tenggat || "-"}</p>
