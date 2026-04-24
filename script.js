@@ -1,11 +1,11 @@
 // ==========================================
-// 1. IMPORT FIREBASE (AUTH & FIRESTORE)
+// 1. IMPORT FIREBASE & KONFIGURASI
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 import { getFirestore, collection, doc, setDoc, getDocs, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
-// GANTI BAGIAN INI DENGAN CONFIG FIREBASE ANDA
+// !!! MASUKKAN CONFIG FIREBASE ANDA DI SINI !!!
 const firebaseConfig = {
   apiKey: "AIzaSyBehvCRHrpP5WtJWlNEkUR4Ua-aqVsgITI",
   authDomain: "internal-kanban.firebaseapp.com",
@@ -20,17 +20,18 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ==========================================
-// 2. VARIABEL GLOBAL & SISTEM KEAMANAN
+// 2. VARIABEL GLOBAL
 // ==========================================
 let currentUserEmail = "Anonim";
 let dataTugas = [];
 let dataArsip = []; 
 let dataLog = [];
 let dataNotifikasi = [];
-let daftarKategoriGlobal = ["Desain", "Engineering", "Marketing", "Lainnya"]; // Nilai bawaan jika database kosong
+let daftarKategoriGlobal = ["Desain", "Engineering", "Marketing", "Lainnya"];
 let semuaProfilMap = {}; 
 let dataProfilUser = {}; 
 let currentSelectedPics = []; 
+let aktifMentionTarget = null;
 
 const currentPath = window.location.pathname;
 const isProtectedPage = currentPath.includes("index") || currentPath.includes("tentang") || currentPath.includes("log") || currentPath.includes("report") || currentPath.includes("profile") || currentPath === "/";
@@ -130,19 +131,19 @@ function inisialisasiDataRealtime() {
         if (docSnap.exists()) {
             daftarKategoriGlobal = docSnap.data().list || ["Lainnya"];
         } else {
-            // Jika dokumen belum ada sama sekali di Firestore, buatkan defaultnya
             setDoc(doc(db, "pengaturan", "kategori_board"), { list: daftarKategoriGlobal });
         }
         
-        // Update tampilan di halaman Profil
         if(document.getElementById("listKategoriPengaturan")) renderPengaturanKategori();
-        // Update dropdown di dalam form Modal Papan Kanban
         if(document.getElementById("inputCategory")) renderDropdownKategori();
     });
 
     setupAutocompletePIC(); 
 }
 
+// ==========================================
+// 4. FUNGSI UTILITAS & NOTIFIKASI
+// ==========================================
 async function catatLog(aksi, namaTugas) {
     const waktuSekarang = new Date().toLocaleString('id-ID');
     await addDoc(collection(db, "logs"), {
@@ -158,6 +159,15 @@ async function kirimNotifikasi(toName, toEmail, pesan) {
     if ((toEmail && toEmail === currentUserEmail) || (toName && toName === dataProfilUser.nama)) return;
     await addDoc(collection(db, "notifikasi"), {
         toName: toName, toEmail: toEmail, pesan: pesan, isRead: false, timestamp: Date.now()
+    });
+}
+
+window.pindaiDanKirimNotifMention = function(teks, judulTugas) {
+    let members = dapatkanDaftarMember();
+    members.forEach(member => {
+        if (teks.includes('@' + member)) {
+            kirimNotifikasi(member, null, `<strong>${dataProfilUser.nama}</strong> menyebut Anda di tugas: <em>${judulTugas}</em>`);
+        }
     });
 }
 
@@ -186,7 +196,54 @@ window.tandaiSemuaDibaca = async function() {
 }
 
 // ==========================================
-// 4. LOGIKA AUTOCOMPLETE MULTI-PIC
+// 5. FITUR MENTION (@)
+// ==========================================
+window.deteksiMention = function(e) {
+    const target = e.target;
+    const val = target.tagName === 'DIV' ? target.innerText : target.value;
+    const words = val.split(/[\s\n]+/);
+    const lastWord = words[words.length - 1];
+    const kotakSaran = document.getElementById('mentionBox');
+
+    if (lastWord.startsWith('@')) {
+        const keyword = lastWord.substring(1).toLowerCase();
+        const cocok = dapatkanDaftarMember().filter(m => m.toLowerCase().includes(keyword));
+        
+        if (cocok.length > 0) {
+            aktifMentionTarget = target;
+            kotakSaran.innerHTML = '';
+            cocok.forEach(m => {
+                kotakSaran.innerHTML += `<div class="suggestion-item" onclick="pilihMention('${m}', '${lastWord}')">${m}</div>`;
+            });
+            
+            const rect = target.getBoundingClientRect();
+            kotakSaran.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+            kotakSaran.style.left = rect.left + 'px';
+            kotakSaran.style.display = 'block';
+        } else {
+            kotakSaran.style.display = 'none';
+        }
+    } else {
+        kotakSaran.style.display = 'none';
+    }
+}
+
+window.pilihMention = function(namaMember, keywordLama) {
+    if(!aktifMentionTarget) return;
+    
+    if (aktifMentionTarget.tagName === 'DIV') {
+        let teksMentionHTML = `<span style="color:#CCFA59; background:#282828; padding:2px 6px; border-radius:4px; font-weight:700;">@${namaMember}</span>&nbsp;`;
+        aktifMentionTarget.innerHTML = aktifMentionTarget.innerHTML.replace(keywordLama, teksMentionHTML);
+    } else {
+        aktifMentionTarget.value = aktifMentionTarget.value.replace(keywordLama, "@" + namaMember + " ");
+    }
+    
+    document.getElementById('mentionBox').style.display = 'none';
+    aktifMentionTarget.focus();
+}
+
+// ==========================================
+// 6. LOGIKA AUTOCOMPLETE MULTI-PIC
 // ==========================================
 function dapatkanDaftarMember() {
     let members = new Set(["Budi Santoso", "Siti Aminah", "Andi Susanto", "Rina Marlina", "Dewi Lestari"]);
@@ -247,8 +304,57 @@ function setupAutocompletePIC() {
 }
 
 // ==========================================
-// 5. HALAMAN PROFIL
+// 7. PENGATURAN KATEGORI & PROFIL
 // ==========================================
+window.renderPengaturanKategori = function() {
+    const container = document.getElementById("listKategoriPengaturan");
+    if(!container) return;
+    container.innerHTML = "";
+    
+    daftarKategoriGlobal.forEach((kat, index) => {
+        container.innerHTML += `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #FAFAFA; padding: 10px 12px; border: 1px solid rgba(40,40,40,0.1); border-radius: 8px;">
+                <span style="font-size: 13px; font-weight: 700; color: #282828;">${kat}</span>
+                <button type="button" onclick="hapusKategori(${index})" style="background: none; border: none; color: #E23B3B; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 4px;">&times;</button>
+            </div>`;
+    });
+}
+
+window.tambahKategoriBaru = async function() {
+    const input = document.getElementById("inputKategoriBaru");
+    const val = input.value.trim();
+    if(val !== "" && !daftarKategoriGlobal.includes(val)) {
+        let newList = [...daftarKategoriGlobal, val];
+        await setDoc(doc(db, "pengaturan", "kategori_board"), { list: newList });
+        input.value = "";
+        catatLog("Menambahkan kategori papan baru", val);
+    } else if (daftarKategoriGlobal.includes(val)) {
+        alert("Kategori tersebut sudah ada!");
+    }
+}
+
+window.hapusKategori = async function(index) {
+    let deleted = daftarKategoriGlobal[index];
+    if(confirm(`Hapus kategori "${deleted}" secara global untuk semua tim?`)) {
+        let newList = [...daftarKategoriGlobal];
+        newList.splice(index, 1);
+        if(newList.length === 0) newList = ["Lainnya"]; 
+        await setDoc(doc(db, "pengaturan", "kategori_board"), { list: newList });
+        catatLog("Menghapus kategori papan", deleted);
+    }
+}
+
+window.renderDropdownKategori = function() {
+    const select = document.getElementById("inputCategory");
+    if(!select) return;
+    const currentValue = select.value; 
+    select.innerHTML = "";
+    daftarKategoriGlobal.forEach(kat => {
+        select.innerHTML += `<option value="${kat}">${kat}</option>`;
+    });
+    if(daftarKategoriGlobal.includes(currentValue)) select.value = currentValue;
+}
+
 window.renderHalamanProfil = function() {
     document.getElementById("inputEmailProfil").value = currentUserEmail;
     document.getElementById("inputNamaProfil").value = dataProfilUser.nama;
@@ -289,7 +395,7 @@ window.simpanProfil = async function(event) {
 }
 
 // ==========================================
-// 6. RENDER PAPAN KANBAN
+// 8. RENDER PAPAN KANBAN & DRAG DROP
 // ==========================================
 window.renderPapanKanban = function() {
     if (!document.getElementById("list-todo")) return;
@@ -331,9 +437,6 @@ window.renderPapanKanban = function() {
     });
 }
 
-// ==========================================
-// 7. DRAG AND DROP CLOUD
-// ==========================================
 window.allowDrop = function(ev) { ev.preventDefault(); }
 window.drag = function(ev) { ev.dataTransfer.setData("text", ev.target.id); }
 
@@ -350,7 +453,7 @@ window.drop = async function(ev, targetStatus) {
 }
 
 // ==========================================
-// 8. RICH TEXT & MODAL TUGAS CLOUD
+// 9. MODAL TUGAS CLOUD
 // ==========================================
 window.formatText = function(command) { document.execCommand(command, false, null); document.getElementById("inputDesc").focus(); }
 window.tambahLink = function() { const url = prompt("Masukkan URL:"); if (url) document.execCommand("createLink", false, url); }
@@ -373,7 +476,6 @@ window.bukaModalTambah = function(statusKolom) {
     currentSelectedPics = [];
     renderPicTags();
     
-    // Mencegah due date di masa lalu
     const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
     const today = (new Date(Date.now() - tzOffset)).toISOString().split("T")[0];
     document.getElementById("inputDue").min = today;
@@ -386,7 +488,6 @@ window.bukaModalEdit = function(id) {
     if(!modal) return;
     modeEditId = id;
     
-    // Temukan tugas, entah di Papan Utama atau di Arsip
     let tugas = dataTugas.find(t => t.id === id) || dataArsip.find(t => t.id === id);
     
     if(tugas) {
@@ -447,6 +548,8 @@ window.simpanTugas = async function(event) {
                 kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menambahkan Anda sebagai PIC di tugas: <em>${judul}</em>`);
             });
 
+            pindaiDanKirimNotifMention(deskripsiRichText, judul);
+
             await updateDoc(doc(db, targetKoleksi, modeEditId), {
                 judul: judul, kategori: kategori, tenggat: tenggat,
                 pic: [...currentSelectedPics], deskripsi: deskripsiRichText, 
@@ -460,6 +563,8 @@ window.simpanTugas = async function(event) {
         currentSelectedPics.forEach(namaPekerja => {
             kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menugaskan Anda pada kartu baru: <em>${judul}</em>`);
         });
+
+        pindaiDanKirimNotifMention(deskripsiRichText, judul);
 
         await setDoc(doc(db, "tugas", newId), {
             id: newId, 
@@ -488,7 +593,7 @@ window.hapusTugas = async function() {
 }
 
 // ==========================================
-// 9. KOMENTAR & BALASAN CLOUD
+// 10. KOMENTAR & BALASAN CLOUD
 // ==========================================
 window.renderKomentar = function(komentarArray) {
     const list = document.getElementById("commentsList");
@@ -500,7 +605,7 @@ window.renderKomentar = function(komentarArray) {
         let namaTampil = dapatkanNamaTampil(komentar.user);
         let replyBadgeHTML = komentar.replyToUser ? `<div class="reply-badge">↳ Membalas pesan dari <strong>${dapatkanNamaTampil(komentar.replyToUser)}</strong></div>` : "";
 
-        list.innerHTML += `<div class="comment-item">${replyBadgeHTML}<div class="comment-meta"><strong>${namaTampil}</strong> • ${komentar.waktu}</div><div class="comment-text">${komentar.teks}</div><div class="comment-actions"><button type="button" class="btn-reply-toggle" onclick="tampilkanFormBalasan(${index})">Balas</button></div><div id="replyForm_${index}" class="reply-form" style="display:none;"><input type="text" id="inputReply_${index}" placeholder="Balas ke ${namaTampil}..."><button type="button" onclick="simpanBalasan('${komentar.user}', ${index})">Kirim</button></div></div>`;
+        list.innerHTML += `<div class="comment-item">${replyBadgeHTML}<div class="comment-meta"><strong>${namaTampil}</strong> • ${komentar.waktu}</div><div class="comment-text">${komentar.teks}</div><div class="comment-actions"><button type="button" class="btn-reply-toggle" onclick="tampilkanFormBalasan(${index})">Balas</button></div><div id="replyForm_${index}" class="reply-form" style="display:none;"><input type="text" id="inputReply_${index}" placeholder="Balas ke ${namaTampil}..." onkeyup="deteksiMention(event)"><button type="button" onclick="simpanBalasan('${komentar.user}', ${index})">Kirim</button></div></div>`;
     });
 }
 
@@ -515,6 +620,8 @@ window.simpanKomentar = async function() {
             let arrayKomentar = tugasAktif.komentar || []; 
             arrayKomentar.push({ user: currentUserEmail, waktu: new Date().toLocaleString('id-ID'), teks: teks, replyToUser: null });
             
+            pindaiDanKirimNotifMention(teks, tugasAktif.judul);
+
             await updateDoc(doc(db, targetKoleksi, modeEditId), { komentar: arrayKomentar });
             catatLog("Menambahkan komentar pada", tugasAktif.judul);
             document.getElementById("inputComment").value = "";
@@ -539,6 +646,7 @@ window.simpanBalasan = async function(targetEmail, index) {
             arrayKomentar.push({ user: currentUserEmail, waktu: new Date().toLocaleString('id-ID'), teks: teks, replyToUser: targetEmail });
             
             kirimNotifikasi(null, targetEmail, `<strong>${dataProfilUser.nama}</strong> membalas komentar Anda di tugas: <em>${tugasAktif.judul}</em>`);
+            pindaiDanKirimNotifMention(teks, tugasAktif.judul);
 
             await updateDoc(doc(db, targetKoleksi, modeEditId), { komentar: arrayKomentar });
             catatLog("Membalas komentar tim pada", tugasAktif.judul);
@@ -547,7 +655,7 @@ window.simpanBalasan = async function(targetEmail, index) {
 }
 
 // ==========================================
-// 10. PUSAT ARSIP (PISAH KOLEKSI UNTUK HEMAT READ)
+// 11. PUSAT ARSIP
 // ==========================================
 window.arsipTugasSatuan = async function(id) {
     let tugas = dataTugas.find(t => t.id === id);
@@ -626,7 +734,7 @@ window.hapusPermanenTugas = async function(id) {
 }
 
 // ==========================================
-// 11. RENDER LOG GENERAL CLOUD
+// 12. RENDER LOG GENERAL CLOUD
 // ==========================================
 window.renderTabelLog = function() {
     const tbody = document.getElementById("logTableBody");
@@ -639,7 +747,7 @@ window.renderTabelLog = function() {
 }
 
 // ==========================================
-// 12. RENDER LAPORAN KINERJA (GABUNGAN)
+// 13. RENDER LAPORAN KINERJA (GABUNGAN)
 // ==========================================
 window.renderLaporan = function() {
     const chartContainer = document.getElementById("categoryChart");
@@ -711,72 +819,4 @@ window.downloadReportHTML = function() {
     link.href = URL.createObjectURL(blob);
     link.download = `Sprout_Report_${filterTeks.replace(/\s+/g, '_')}.html`;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
-}
-
-// ==========================================
-// PENGATURAN KATEGORI KUSTOM
-// ==========================================
-
-// Menggambar daftar kategori di halaman Profil
-window.renderPengaturanKategori = function() {
-    const container = document.getElementById("listKategoriPengaturan");
-    if(!container) return;
-    container.innerHTML = "";
-    
-    daftarKategoriGlobal.forEach((kat, index) => {
-        container.innerHTML += `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #FAFAFA; padding: 10px 12px; border: 1px solid rgba(40,40,40,0.1); border-radius: 8px;">
-                <span style="font-size: 13px; font-weight: 700; color: #282828;">${kat}</span>
-                <button type="button" onclick="hapusKategori(${index})" style="background: none; border: none; color: #E23B3B; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 4px;" title="Hapus Kategori">&times;</button>
-            </div>
-        `;
-    });
-}
-
-// Menambahkan kategori baru ke Firestore
-window.tambahKategoriBaru = async function() {
-    const input = document.getElementById("inputKategoriBaru");
-    const val = input.value.trim();
-    
-    if(val !== "" && !daftarKategoriGlobal.includes(val)) {
-        let newList = [...daftarKategoriGlobal, val];
-        await setDoc(doc(db, "pengaturan", "kategori_board"), { list: newList });
-        input.value = "";
-        catatLog("Menambahkan kategori papan baru", val);
-    } else if (daftarKategoriGlobal.includes(val)) {
-        alert("Kategori tersebut sudah ada!");
-    }
-}
-
-// Menghapus kategori dari Firestore
-window.hapusKategori = async function(index) {
-    let deleted = daftarKategoriGlobal[index];
-    if(confirm(`Hapus kategori "${deleted}" secara global untuk semua tim?\n\nCatatan: Tugas lama yang sudah menggunakan kategori ini tidak akan rusak.`)) {
-        let newList = [...daftarKategoriGlobal];
-        newList.splice(index, 1);
-        
-        // Pastikan minimal selalu ada 1 kategori agar sistem tidak error
-        if(newList.length === 0) newList = ["Lainnya"]; 
-        
-        await setDoc(doc(db, "pengaturan", "kategori_board"), { list: newList });
-        catatLog("Menghapus kategori papan", deleted);
-    }
-}
-
-// Mengisi dropdown opsi saat membuat/mengedit tugas
-window.renderDropdownKategori = function() {
-    const select = document.getElementById("inputCategory");
-    if(!select) return;
-    
-    const currentValue = select.value; // Ingat pilihan sebelumnya saat di-render ulang
-    
-    select.innerHTML = "";
-    daftarKategoriGlobal.forEach(kat => {
-        select.innerHTML += `<option value="${kat}">${kat}</option>`;
-    });
-    
-    // Jika pilihan sebelumnya masih ada di daftar yang baru, tetapkan kembali
-    if(daftarKategoriGlobal.includes(currentValue)) {
-        select.value = currentValue;
-    }
 }
