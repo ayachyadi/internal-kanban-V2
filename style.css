@@ -1503,7 +1503,7 @@ body {
     display: none;
     background: transparent;
     border: none;
-    color: #282828;
+    color: #CCFA59;
     cursor: pointer;
     padding: 4px;
 }
@@ -1534,7 +1534,7 @@ body {
         top: 70px; /* Jarak dari atas (sesuaikan dengan tinggi navbar Anda) */
         left: 0;
         width: 100%;
-        background-color: #FFFFFF;
+        background-color: #3c3d41;
         box-shadow: 0 8px 16px rgba(0,0,0,0.1);
         padding: 24px;
         z-index: 9999;
