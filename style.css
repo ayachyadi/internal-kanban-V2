@@ -509,17 +509,13 @@ body {
 
 /* Kategori Pill pada Kartu */
 .card-category {
-    display: inline-block;
-    padding: 4px 8px;
-    background-color: #F7F7F7;
-    border: 1px solid rgba(40,40,40,0.1);
-    border-radius: 4px;
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 800;
     text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 4px;
     letter-spacing: 0.5px;
-    color: #282828;
-    margin-bottom: 8px;
+    /* Background dan Color sekarang diatur secara dinamis oleh JS */
 }
 
 /* Modal Ekstra Lebar */
