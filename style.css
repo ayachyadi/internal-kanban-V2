@@ -1155,3 +1155,29 @@ body {
     margin-bottom: 6px;
     font-weight: 700;
 }
+
+/* =========================================
+   GAYA TOMBOL ARSIP DALAM KARTU
+========================================= */
+.card-archive-btn {
+    background: transparent;
+    border: none;
+    color: rgba(40, 40, 40, 0.2); /* Sangat samar secara default */
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+/* Muncul lebih jelas saat kartu atau tombol disorot */
+.card:hover .card-archive-btn {
+    color: rgba(40, 40, 40, 0.5);
+}
+
+.card-archive-btn:hover {
+    background-color: rgba(204, 250, 89, 0.2); /* Aksen tipis Sprout Acid */
+    color: #282828 !important;
+}
