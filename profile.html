@@ -52,12 +52,22 @@
                             <input type="email" id="inputEmailProfil" disabled style="background-color: #EFEFEF; color: #888; cursor: not-allowed;">
                         </div>
 
+                        <div class="input-group" style="text-align: left; margin-top: 16px;">
+                            <label>Peran (Role) Akun <span style="color:#E23B3B; font-size:11px;">*Hanya untuk Uji Coba</span></label>
+                            <select id="inputRoleProfil" class="sprout-select" style="width: 100%; border: 1px solid rgba(40,40,40,0.15);">
+                                <option value="admin">👑 Admin (Akses Penuh)</option>
+                                <option value="editor">✍️ Editor (Bisa Edit, Tidak Bisa Hapus)</option>
+                                <option value="viewer">👁️ Viewer (Hanya Baca)</option>
+                            </select>
+                            <p style="font-size: 11px; color: gray; margin-top: 4px;">Ubah ini lalu ke Papan Kanban untuk melihat perubahannya.</p>
+                        </div>
+
                         <button type="submit" class="save-btn" style="width: 100%; margin-top: 16px;">Simpan Profil</button>
                     </form>
                 </div>
 
-                <div class="profile-card" style="padding: 24px;">
-                    <h3 style="font-size: 16px; margin-bottom: 16px; text-align: left; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px;">Kategori Tugas (Global)</h3>
+                <div class="profile-card" id="kategoriPanel" style="padding: 24px;">
+                    <h3 style="font-size: 16px; margin-bottom: 16px; text-align: left; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px;">Kategori Tugas (Khusus Admin)</h3>
                     
                     <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                         <input type="text" id="inputKategoriBaru" placeholder="Kategori baru..." style="flex: 1; padding: 10px 12px; border: 1px solid rgba(40,40,40,0.15); border-radius: 8px; font-size: 13px;">
@@ -71,7 +81,6 @@
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 24px;">
-                
                 <div class="history-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; margin: 0;">Notifikasi Belum Dibaca</h3>
@@ -88,7 +97,6 @@
                         <p style="color:gray; font-size:13px;">Memuat riwayat...</p>
                     </div>
                 </div>
-
             </div>
         </div>
     </main>
