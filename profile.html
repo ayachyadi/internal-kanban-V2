@@ -31,45 +31,50 @@
         <h1 style="margin-bottom: 32px; font-size: 32px; letter-spacing: -1px;">Pengaturan Profil</h1>
 
         <div class="profile-wrapper">
-            <div class="profile-card">
-                <form id="formProfil" onsubmit="simpanProfil(event)">
-                    <div class="avatar-section">
-                        <div class="avatar-wrapper">
-                            <img id="avatarPreview" src="https://ui-avatars.com/api/?name=User&background=282828&color=CCFA59&size=150" alt="Profile Picture">
+            
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                
+                <div class="profile-card">
+                    <form id="formProfil" onsubmit="simpanProfil(event)">
+                        <div class="avatar-section">
+                            <div class="avatar-wrapper">
+                                <img id="avatarPreview" src="" alt="Profile Picture">
+                            </div>
+                            <label for="uploadAvatar" class="upload-btn">Ganti Foto</label>
+                            <input type="file" id="uploadAvatar" accept="image/*" style="display: none;" onchange="gantiAvatar(event)">
                         </div>
-                        <label for="uploadAvatar" class="upload-btn">Ganti Foto</label>
-                        <input type="file" id="uploadAvatar" accept="image/*" style="display: none;" onchange="gantiAvatar(event)">
-                    </div>
 
-                    <div class="input-group" style="text-align: left; margin-top: 24px;">
-                        <label>Nama Lengkap</label>
-                        <input type="text" id="inputNamaProfil" placeholder="Masukkan nama Anda..." required>
-                    </div>
+                        <div class="input-group" style="text-align: left; margin-top: 24px;">
+                            <label>Nama Lengkap</label>
+                            <input type="text" id="inputNamaProfil" placeholder="Masukkan nama Anda..." required>
+                        </div>
 
-                    <div class="input-group" style="text-align: left;">
-                        <label>Email (ID)</label>
-                        <input type="email" id="inputEmailProfil" disabled style="background-color: #EFEFEF; color: #888; cursor: not-allowed;">
-                        <p style="font-size: 11px; color: gray; margin-top: 4px;">Email terhubung dengan Firebase Auth.</p>
-                    </div>
+                        <div class="input-group" style="text-align: left;">
+                            <label>Email (ID)</label>
+                            <input type="email" id="inputEmailProfil" disabled style="background-color: #EFEFEF; color: #888; cursor: not-allowed;">
+                            <p style="font-size: 11px; color: gray; margin-top: 4px;">Email terhubung dengan Firebase Auth.</p>
+                        </div>
 
-                    <button type="submit" class="save-btn" style="width: 100%; margin-top: 16px;">Simpan Profil</button>
-                </form>
+                        <button type="submit" class="save-btn" style="width: 100%; margin-top: 16px;">Simpan Profil</button>
+                    </form>
+                </div>
+
+                <div class="profile-card" style="padding: 24px;">
+                    <h3 style="font-size: 16px; margin-bottom: 16px; text-align: left; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px;">Kategori Tugas (Global)</h3>
+                    
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <input type="text" id="inputKategoriBaru" placeholder="Kategori baru..." style="flex: 1; padding: 10px 12px; border: 1px solid rgba(40,40,40,0.15); border-radius: 8px; font-size: 13px;">
+                        <button type="button" onclick="tambahKategoriBaru()" class="save-btn" style="padding: 10px 16px; background-color: #282828; color: #CCFA59;">Tambah</button>
+                    </div>
+                    
+                    <div id="listKategoriPengaturan" style="display: flex; flex-direction: column; gap: 8px; text-align: left; max-height: 250px; overflow-y: auto;">
+                        <p style="color:gray; font-size:13px; text-align:center;">Memuat kategori...</p>
+                    </div>
+                </div>
+
             </div>
 
-            <div class="profile-card" style="margin-top: 24px;">
-                <h3 style="font-size: 16px; margin-bottom: 16px; text-align: left; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px;">Kategori Tugas (Global)</h3>
-                
-                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                    <input type="text" id="inputKategoriBaru" placeholder="Kategori baru..." style="flex: 1; padding: 10px 12px; border: 1px solid rgba(40,40,40,0.15); border-radius: 8px; font-size: 13px;">
-                    <button type="button" onclick="tambahKategoriBaru()" class="save-btn" style="padding: 10px 16px; background-color: #282828; color: #CCFA59;">Tambah</button>
-                </div>
-                
-                <div id="listKategoriPengaturan" style="display: flex; flex-direction: column; gap: 8px; text-align: left; max-height: 250px; overflow-y: auto;">
-                    <p style="color:gray; font-size:13px; text-align:center;">Memuat kategori...</p>
-                </div>
-            </div>
-
-<div style="display: flex; flex-direction: column; gap: 24px;">
+            <div style="display: flex; flex-direction: column; gap: 24px;">
                 
                 <div class="history-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px; margin-bottom: 20px;">
@@ -83,17 +88,13 @@
 
                 <div class="history-card">
                     <h3 style="font-size: 16px; margin-bottom: 20px; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px;">Riwayat Aktivitas Anda</h3>
-                    <div class="history-list" id="userHistoryList"></div>
+                    <div class="history-list" id="userHistoryList">
+                        <p style="color:gray; font-size:13px;">Memuat riwayat...</p>
+                    </div>
                 </div>
+
             </div>
-            
-            <div class="history-card">
-                <h3 style="font-size: 16px; margin-bottom: 20px; border-bottom: 1px solid rgba(40,40,40,0.07); padding-bottom: 12px;">Riwayat Aktivitas Anda</h3>
-                
-                <div class="history-list" id="userHistoryList">
-                    <p style="color:gray; font-size:13px;">Memuat riwayat...</p>
-                </div>
-            </div>
+
         </div>
     </main>
 
