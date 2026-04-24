@@ -1366,3 +1366,42 @@ body {
     position: fixed; /* Menembus modal */
     z-index: 1000000;
 }
+
+/* =========================================
+   PERBAIKAN VISUAL KARTU (SPACING & TIPOGRAFI)
+========================================= */
+
+/* Menambahkan jarak antar kartu */
+.card {
+    margin-bottom: 12px; 
+}
+
+.card:last-child {
+    margin-bottom: 0;
+}
+
+/* Mengecilkan judul kartu */
+.card h4 {
+    font-size: 14px; 
+    line-height: 1.4;
+    margin-top: 10px;
+    margin-bottom: 8px;
+    font-weight: 700;
+    color: #282828;
+}
+
+/* Memperhalus tampilan ikon arsip outline */
+.card-archive-btn {
+    background: transparent;
+    border: none;
+    color: rgba(40,40,40,0.3); /* Samar saat tidak disorot */
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s ease;
+}
+
+.card-archive-btn:hover {
+    color: #282828; /* Menjadi tebal saat disorot */
+}
