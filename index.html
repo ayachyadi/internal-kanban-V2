@@ -28,13 +28,27 @@
     </nav>
 
     <main class="board-container">
-        <div class="board-controls">
-            <span class="control-label">Urutkan berdasarkan:</span>
-            <select id="sortSelect" class="sprout-select" onchange="renderPapanKanban()">
-                <option value="default">Terbaru Ditambahkan</option>
-                <option value="dueDate">Tenggat Waktu</option>
-                <option value="category">Kategori</option>
-            </select>
+        <div class="board-controls" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span class="control-label">Urutkan berdasarkan:</span>
+                <select id="sortSelect" class="sprout-select" onchange="renderPapanKanban()">
+                    <option value="default">Terbaru Ditambahkan</option>
+                    <option value="dueDate">Tenggat Waktu</option>
+                    <option value="category">Kategori</option>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+                <button onclick="bukaModalArsip()" style="background-color: transparent; color: #282828; border: 1px solid rgba(40,40,40,0.15); padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s ease;">
+                    Lihat Arsip
+                </button>
+
+                <button onclick="window.location.href='report.html'" style="background-color: #CCFA59; color: #282828; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity 0.2s ease;">
+                    Lihat Laporan Kinerja →
+                </button>
+            </div>
+
         </div>
 
         <div class="board">
@@ -134,6 +148,17 @@
                 </div>
             </div>
 
+        </div>
+    </div>
+
+<div id="archiveModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close-btn" onclick="document.getElementById('archiveModal').style.display='none'">&times;</span>
+            <h2 style="font-size: 24px; font-weight: 700; color: #282828; margin-bottom: 8px; letter-spacing: -0.5px;">Pusat Arsip</h2>
+            <p style="font-size: 13px; color: rgba(40,40,40,0.55); margin-bottom: 24px;">Tugas yang ada di sini tidak tampil di papan utama, tetapi tetap terhitung di Laporan.</p>
+            
+            <div id="archiveList" style="display: flex; flex-direction: column; gap: 12px; max-height: 60vh; overflow-y: auto; padding-right: 8px;">
+                </div>
         </div>
     </div>
 
