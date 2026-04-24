@@ -87,15 +87,17 @@ body {
 }
 
 .column {
-    background-color: #FFFFFF; /* Clean White */
-    border: 1px solid rgba(40,40,40,0.07);
-    border-radius: 12px;
-    width: 300px;
-    min-width: 300px;
-    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    background-color: #FFFFFF; /* Sesuaikan dengan warna background kontainer Anda */
+    border: 1px solid rgba(40, 40, 40, 0.07); /* Border halus Sprout */
+    border-radius: 12px;
+    padding: 16px 16px 8px 16px; /* Padding bawah dikurangi sedikit untuk scrollbar */
+    min-width: 300px;
+    max-width: 300px;
+    
+    /* KUNCI UTAMA: Membatasi tinggi kolom agar tidak jebol ke bawah layar */
+    max-height: calc(100vh - 140px); 
 }
 
 /* Desain Header Kolom meniru Section Label Sprout */
@@ -150,10 +152,29 @@ body {
    KARTU TUGAS (CARDS)
 ========================================= */
 .task-list {
-    min-height: 100px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    flex: 1; /* Memaksa daftar tugas mengambil sisa ruang di dalam kolom */
+    overflow-y: auto; /* Memunculkan scrollbar vertikal JIKA kartu kepenuhan */
+    overflow-x: hidden;
+    min-height: 50px;
+    padding-right: 4px; /* Memberi ruang agar scrollbar tidak menempel ke kartu */
+    padding-bottom: 16px; /* Ruang nafas di bawah kartu terakhir */
+}
+
+.task-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.task-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.task-list::-webkit-scrollbar-thumb {
+    background-color: rgba(40, 40, 40, 0.15); /* Abu-abu halus ala Seedbed Grey */
+    border-radius: 10px;
+}
+
+.task-list::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(40, 40, 40, 0.3);
 }
 
 .card {
