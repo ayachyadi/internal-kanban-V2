@@ -335,10 +335,15 @@ window.renderPapanKanban = function() {
 
         const kartuHTML = `
             <div class="card" draggable="true" ondragstart="drag(event)" onclick="bukaModalEdit('${tugas.id}')" id="${tugas.id}">
-                ${kategoriHTML}
-                <h4>${tugas.judul}</h4>
-                <p>${picDisplay} • ${tugas.tenggat || "-"}${infoKomentar}</p>
-            </div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            ${kategoriHTML}
+            <button class="card-archive-btn" onclick="event.stopPropagation(); arsipTugasSatuan('${tugas.id}')" title="Arsipkan">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+            </button>
+        </div>
+        <h4>${tugas.judul}</h4>
+        <p>${picDisplay} • ${tugas.tenggat || "-"}${infoKomentar}</p>
+    </div>
         `;
         document.getElementById("list-" + tugas.status).innerHTML += kartuHTML;
     });
@@ -641,4 +646,14 @@ window.downloadReportHTML = function() {
     link.href = URL.createObjectURL(blob);
     link.download = `Sprout_Report_${filterTeks.replace(/\s+/g, '_')}.html`;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+// Fungsi untuk mengarsipkan satu kartu spesifik
+window.arsipTugasSatuan = async function(id) {
+    let tugas = dataTugas.find(t => t.id === id);
+    if (tugas) {
+        await updateDoc(doc(db, "tugas", id), {
+            status: 'archived'
+        });
+        catatLog("Mengarsipkan kartu", tugas.judul);
+    }
 }
