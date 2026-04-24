@@ -665,3 +665,77 @@ window.downloadReportHTML = function() {
     link.download = `Sprout_Report_${filterTeks.replace(/\s+/g, '_')}.html`;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
+
+// ==========================================
+// 14. MINI GAME (SPROUT RUNNER)
+// ==========================================
+const gameBoard = document.getElementById("gameBoard");
+
+if (gameBoard) { // Pastikan script hanya jalan jika ada di halaman Tentang
+    const char = document.getElementById("sproutChar");
+    const obs = document.getElementById("cactusObs");
+    const scoreText = document.getElementById("gameScore");
+    const gameOverMsg = document.getElementById("gameOverMsg");
+
+    let isJumping = false;
+    let isGameOver = true; 
+    let score = 0;
+    let checkCollision;
+
+    // Fungsi Melompat
+    function lompat() {
+        if (isGameOver) {
+            mulaiGame(); // Jika mati, klik untuk mulai lagi
+            return;
+        }
+        if (!isJumping) {
+            isJumping = true;
+            char.classList.add("lompat");
+            setTimeout(() => {
+                char.classList.remove("lompat");
+                isJumping = false;
+            }, 500);
+        }
+    }
+
+    // Mesin Permainan
+    function mulaiGame() {
+        isGameOver = false;
+        score = 0;
+        gameOverMsg.style.display = "none";
+        obs.style.animation = "none"; 
+        
+        // Memulai animasi rintangan (sedikit delay agar tidak ngelag)
+        setTimeout(() => { obs.classList.add("jalan"); }, 50);
+
+        if (checkCollision) clearInterval(checkCollision);
+
+        checkCollision = setInterval(() => {
+            // Ambil kordinat karakter dan rintangan saat ini
+            let charTop = parseInt(window.getComputedStyle(char).getPropertyValue("top"));
+            let obsLeft = parseInt(window.getComputedStyle(obs).getPropertyValue("left"));
+
+            // Logika Tabrakan (Karakter tidak lompat cukup tinggi saat kaktus lewat)
+            if (obsLeft < 70 && obsLeft > 40 && charTop >= 90) {
+                obs.style.animation = "none"; // Hentikan kaktus
+                obs.classList.remove("jalan");
+                gameOverMsg.style.display = "block";
+                isGameOver = true;
+                clearInterval(checkCollision);
+            } else if (!isGameOver) {
+                score++;
+                scoreText.innerText = Math.floor(score / 10); // Skor bertambah seiring waktu
+            }
+        }, 10);
+    }
+
+    // Pemicu Lompat (Bisa pakai Spasi, Klik Mouse, atau Sentuh Layar HP)
+    document.addEventListener("keydown", function(event) {
+        if (event.code === "Space") {
+            event.preventDefault(); // Cegah halaman scroll ke bawah
+            lompat();
+        }
+    });
+    gameBoard.addEventListener("mousedown", lompat);
+    gameBoard.addEventListener("touchstart", function(e){ e.preventDefault(); lompat(); });
+}
