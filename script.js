@@ -200,11 +200,14 @@ window.tandaiSemuaDibaca = async function() {
 // ==========================================
 window.deteksiMention = function(e) {
     const target = e.target;
-    const val = target.tagName === 'DIV' ? target.innerText : target.value;
+    
+    // Perbaikan 1: Ubah "spasi gaib" (non-breaking space) menjadi spasi normal
+    const val = target.tagName === 'DIV' ? target.innerText.replace(/\u00A0/g, ' ') : target.value;
     const words = val.split(/[\s\n]+/);
     const lastWord = words[words.length - 1];
     const kotakSaran = document.getElementById('mentionBox');
 
+    // Jika kata terakhir diawali @
     if (lastWord.startsWith('@')) {
         const keyword = lastWord.substring(1).toLowerCase();
         const cocok = dapatkanDaftarMember().filter(m => m.toLowerCase().includes(keyword));
@@ -216,9 +219,12 @@ window.deteksiMention = function(e) {
                 kotakSaran.innerHTML += `<div class="suggestion-item" onclick="pilihMention('${m}', '${lastWord}')">${m}</div>`;
             });
             
+            // Perbaikan 2: Gunakan position 'fixed' dan Z-index absolut agar menembus Modal
             const rect = target.getBoundingClientRect();
-            kotakSaran.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+            kotakSaran.style.position = 'fixed';
+            kotakSaran.style.top = (rect.bottom + 5) + 'px';
             kotakSaran.style.left = rect.left + 'px';
+            kotakSaran.style.zIndex = '999999'; // Prioritas layer tertinggi
             kotakSaran.style.display = 'block';
         } else {
             kotakSaran.style.display = 'none';
@@ -232,9 +238,19 @@ window.pilihMention = function(namaMember, keywordLama) {
     if(!aktifMentionTarget) return;
     
     if (aktifMentionTarget.tagName === 'DIV') {
-        let teksMentionHTML = `<span style="color:#CCFA59; background:#282828; padding:2px 6px; border-radius:4px; font-weight:700;">@${namaMember}</span>&nbsp;`;
+        // Mode Deskripsi (Rich Text)
+        let teksMentionHTML = `<strong style="color:#CCFA59; background:#282828; padding:2px 6px; border-radius:4px;">@${namaMember}</strong>&nbsp;`;
         aktifMentionTarget.innerHTML = aktifMentionTarget.innerHTML.replace(keywordLama, teksMentionHTML);
+        
+        // Perbaikan 3: Paksa kursor kembali ke ujung kanan setelah mention dimasukkan
+        let range = document.createRange();
+        let sel = window.getSelection();
+        range.selectNodeContents(aktifMentionTarget);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
     } else {
+        // Mode Input Komentar
         aktifMentionTarget.value = aktifMentionTarget.value.replace(keywordLama, "@" + namaMember + " ");
     }
     
