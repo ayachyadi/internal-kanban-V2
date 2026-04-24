@@ -156,6 +156,17 @@ window.pilihMention = function(namaMember, keywordLama) {
 }
 
 // --- LOGIKA BOARD DENGAN RBAC ---
+// Fungsi baru pencipta warna otomatis
+function getCategoryColor(name) {
+    if (!name) return '#CCFA59';
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) { hash = name.charCodeAt(i) + ((hash << 5) - hash); }
+    const h = 65 + (Math.abs(hash) % 20); 
+    const s = 75 + (Math.abs(hash) % 20);
+    const l = 65 + (Math.abs(hash) % 15);
+    return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
 window.renderPapanKanban = function() {
     ["todo", "doing", "review", "done"].forEach(s => {
         const list = document.getElementById("list-" + s);
@@ -180,20 +191,24 @@ window.renderPapanKanban = function() {
         const list = document.getElementById("list-" + t.status);
         if(list) {
             const pic = Array.isArray(t.pic) ? t.pic.join(", ") : (t.pic || "-");
+            const catColor = getCategoryColor(t.kategori); // WARNA DINAMIS
+            
             // RBAC: Kunci kemampuan drag & drop jika Viewer
             const dragAttr = (role !== 'viewer') ? `draggable="true" ondragstart="drag(event)"` : '';
             
             list.innerHTML += `
                 <div class="card" ${dragAttr} onclick="bukaModalEdit('${t.id}')" id="${t.id}">
-                    <div style="display: flex; justify-content: space-between;">
-                        <span class="card-category">${t.kategori || "Lainnya"}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        
+                        <span class="card-category" style="background-color: ${catColor}; color: #282828;">${t.kategori || "Lainnya"}</span>
+                        
                         <button class="card-archive-btn" onclick="event.stopPropagation(); arsipTugasSatuan('${t.id}')" title="Arsipkan">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="21 8 21 21 3 21 3 8"></polyline>
-        <rect x="1" y="3" width="22" height="5"></rect>
-        <line x1="10" y1="12" x2="14" y2="12"></line>
-    </svg>
-</button>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="21 8 21 21 3 21 3 8"></polyline>
+                                <rect x="1" y="3" width="22" height="5"></rect>
+                                <line x1="10" y1="12" x2="14" y2="12"></line>
+                            </svg>
+                        </button>
                     </div>
                     <h4>${t.judul}</h4>
                     <p>${pic} • ${t.tenggat || "-"}</p>
