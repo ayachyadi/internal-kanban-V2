@@ -55,20 +55,26 @@ onAuthStateChanged(auth, async (user) => {
 
 window.prosesLogout = function() { signOut(auth).then(() => { window.location.href = "login.html"; }); };
 
-function inisialisasiDataRealtime() {
-    onSnapshot(collection(db, "profiles"), (snapshot) => {
-        snapshot.forEach(doc => { semuaProfilMap[doc.id] = doc.data(); });
+onSnapshot(collection(db, "profiles"), (snapshot) => {
+        semuaProfilMap = {};
+        snapshot.forEach(doc => { 
+            semuaProfilMap[doc.id] = doc.data(); 
+            // Pastikan data profil user yang sedang login juga ter-update
+            if (currentUserEmail && doc.id === currentUserEmail) {
+                dataProfilUser = doc.data();
+            }
+        });
         
-        // Membaca Role dari Database, default ke 'admin' agar Anda tidak terkunci
-        let pData = semuaProfilMap[currentUserEmail];
-        dataProfilUser = pData || { nama: currentUserEmail.split('@')[0], avatar: "", role: 'admin' };
-        if(!dataProfilUser.role) dataProfilUser.role = 'admin'; // Proteksi fallback
-
-        const navIcon = document.getElementById("navProfileIcon");
-        if(navIcon) navIcon.src = dataProfilUser.avatar || `https://ui-avatars.com/api/?name=${dataProfilUser.nama}`;
+        // --- FITUR BARU: Auto-Refresh Profil & Panel Tim ---
+        // Segarkan halaman profil jika kita sedang berada di sana
+        if (document.getElementById("inputNamaProfil") && typeof renderHalamanProfil === "function") {
+            renderHalamanProfil();
+        }
         
-        if (document.getElementById("formProfil")) renderHalamanProfil();
-        if (document.getElementById("list-todo")) renderPapanKanban(); 
+        // Segarkan daftar anggota jika panel Manajemen Tim terbuka
+        if (document.getElementById("teamList") && typeof renderManajemenTim === "function") {
+            renderManajemenTim();
+        }
     });
 
     onSnapshot(collection(db, "tugas"), (snapshot) => {
