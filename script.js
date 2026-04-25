@@ -259,4 +259,532 @@ window.renderPapanKanban = function() {
                             </svg>
                         </button>
                     </div>
-                    <h4>
+                    <h4>${t.judul}</h4>
+                    <p>${pic} • ${t.tenggat || "-"}</p>
+                </div>`;
+        }
+    });
+}
+
+window.allowDrop = function(ev) { if (dataProfilUser.role !== 'viewer') ev.preventDefault(); }
+window.drag = function(ev) { if (dataProfilUser.role !== 'viewer') ev.dataTransfer.setData("text", ev.target.id); }
+window.drop = async function(ev, targetStatus) {
+    if (dataProfilUser.role === 'viewer') return; 
+    ev.preventDefault();
+    var idKartu = ev.dataTransfer.getData("text");
+    let tugasPilihan = dataTugas.find(t => t.id === idKartu);
+    if (tugasPilihan && tugasPilihan.status !== targetStatus) {
+        let isDone = (targetStatus === 'review' || targetStatus === 'done');
+        await updateDoc(doc(db, "tugas", idKartu), { status: targetStatus, isDone: isDone });
+        catatLog("Memindahkan kartu ke kolom " + targetStatus.toUpperCase(), tugasPilihan.judul);
+    }
+}
+
+// ==========================================
+// 7. MODAL EDIT/TAMBAH TUGAS
+// ==========================================
+window.formatText = function(command) { document.execCommand(command, false, null); document.getElementById("inputDesc").focus(); }
+window.tambahLink = function() { const url = prompt("Masukkan URL:"); if (url) document.execCommand("createLink", false, url); }
+
+function aturKunciForm(kunci) {
+    document.getElementById("inputTitle").disabled = kunci;
+    document.getElementById("inputCategory").disabled = kunci;
+    document.getElementById("inputDue").disabled = kunci;
+    document.getElementById("inputPerson").disabled = kunci;
+    document.getElementById("inputDoneCheck").disabled = kunci;
+    document.getElementById("inputDesc").contentEditable = !kunci;
+    const toolbars = document.querySelectorAll('.rich-text-toolbar'); toolbars.forEach(el => el.style.display = kunci ? 'none' : 'flex');
+    const formActions = document.querySelector('.form-actions'); if(formActions) formActions.style.display = kunci ? 'none' : 'flex';
+}
+
+window.bukaModalTambah = function(statusKolom) {
+    if (dataProfilUser.role === 'viewer') { alert("Akses Ditolak: Anda adalah Viewer."); return; }
+    const modal = document.getElementById("cardModal"); if(!modal) return;
+    modeEditId = null; kolomTarget = statusKolom;
+    document.getElementById("modalHeader").innerText = "Tambah Tugas Baru";
+    document.getElementById("taskForm").reset();
+    document.getElementById("inputDesc").innerHTML = "";
+    document.getElementById("commentSection").style.display = "none";
+    document.getElementById("btnDelete").style.display = "none";
+    document.getElementById("inputDoneCheck").checked = false;
+    currentSelectedPics = []; renderPicTags();
+    aturKunciForm(false);
+    modal.style.display = "flex";
+}
+
+window.bukaModalEdit = function(id) {
+    const modal = document.getElementById("cardModal"); if(!modal) return;
+    modeEditId = id;
+    let tugas = dataTugas.find(t => t.id === id) || dataArsip.find(t => t.id === id);
+    if(tugas) {
+        let role = dataProfilUser.role || 'admin';
+        document.getElementById("modalHeader").innerText = (role === 'viewer') ? "Detail Tugas (Read-Only)" : "Edit Tugas";
+        document.getElementById("inputTitle").value = tugas.judul;
+        document.getElementById("inputCategory").value = tugas.kategori || "Lainnya";
+        document.getElementById("inputDue").value = tugas.tenggat;
+        document.getElementById("inputDesc").innerHTML = tugas.deskripsi || "";
+        document.getElementById("inputDoneCheck").checked = tugas.isDone || false;
+        
+        if (Array.isArray(tugas.pic)) currentSelectedPics = [...tugas.pic];
+        else if (typeof tugas.pic === 'string' && tugas.pic) currentSelectedPics = tugas.pic.split(',').map(s=>s.trim());
+        else currentSelectedPics = [];
+        renderPicTags();
+        
+        document.getElementById("commentSection").style.display = "block";
+        renderKomentar(tugas.komentar || []);
+        aturKunciForm(role === 'viewer');
+        document.getElementById("btnDelete").style.display = (role === 'admin') ? "inline-block" : "none";
+        
+        const addCommentBox = document.querySelector('.add-comment-box');
+        if(addCommentBox) addCommentBox.style.display = (role === 'viewer') ? 'none' : 'flex';
+        modal.style.display = "flex";
+    }
+}
+window.tutupModal = function() { const modal = document.getElementById("cardModal"); if(modal) modal.style.display = "none"; }
+
+window.simpanTugas = async function(event) {
+    event.preventDefault(); 
+    if (dataProfilUser.role === 'viewer') return;
+
+    const judul = document.getElementById("inputTitle").value; const kategori = document.getElementById("inputCategory").value;
+    const tenggat = document.getElementById("inputDue").value; const deskripsiRichText = document.getElementById("inputDesc").innerHTML; 
+    const isDone = document.getElementById("inputDoneCheck").checked;
+    const sisaKetikanPic = document.getElementById("inputPerson").value.trim();
+    if (sisaKetikanPic !== "" && !currentSelectedPics.includes(sisaKetikanPic)) currentSelectedPics.push(sisaKetikanPic);
+
+    if (modeEditId) {
+        let isDiPapan = dataTugas.some(t => t.id === modeEditId); let targetKoleksi = isDiPapan ? "tugas" : "arsip_tugas";
+        let tugasAktif = dataTugas.find(t => t.id === modeEditId) || dataArsip.find(t => t.id === modeEditId);
+        if(tugasAktif) {
+            let newStatus = tugasAktif.status;
+            if(isDone && (tugasAktif.status === 'todo' || tugasAktif.status === 'doing')) newStatus = 'review';
+            let picLama = Array.isArray(tugasAktif.pic) ? tugasAktif.pic : (typeof tugasAktif.pic === 'string' ? tugasAktif.pic.split(',').map(s=>s.trim()) : []);
+            let picBaru = currentSelectedPics.filter(p => !picLama.includes(p));
+            picBaru.forEach(namaPekerja => { kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menambahkan Anda sebagai PIC di tugas: <em>${judul}</em>`); });
+            pindaiDanKirimNotifMention(deskripsiRichText, judul);
+            await updateDoc(doc(db, targetKoleksi, modeEditId), { judul: judul, kategori: kategori, tenggat: tenggat, pic: [...currentSelectedPics], deskripsi: deskripsiRichText, isDone: isDone, status: newStatus });
+            catatLog("Mengedit kartu", judul);
+        }
+    } else {
+        const newId = "task_" + Date.now();
+        currentSelectedPics.forEach(namaPekerja => { kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menugaskan Anda pada kartu baru: <em>${judul}</em>`); });
+        pindaiDanKirimNotifMention(deskripsiRichText, judul);
+        await setDoc(doc(db, "tugas", newId), { id: newId, status: isDone ? 'review' : kolomTarget, judul: judul, kategori: kategori, tenggat: tenggat, pic: [...currentSelectedPics], deskripsi: deskripsiRichText, isDone: isDone, komentar: [] });
+        catatLog("Membuat kartu baru", judul);
+    }
+    window.tutupModal();
+}
+
+window.hapusTugas = async function() {
+    if (dataProfilUser.role !== 'admin') { alert("Hanya Admin yang bisa menghapus tugas."); return; }
+    if(confirm("Yakin ingin menghapus tugas ini secara permanen?")) {
+        let isDiPapan = dataTugas.some(t => t.id === modeEditId); let targetKoleksi = isDiPapan ? "tugas" : "arsip_tugas";
+        let tugasAktif = dataTugas.find(t => t.id === modeEditId) || dataArsip.find(t => t.id === modeEditId);
+        if(tugasAktif) {
+            await deleteDoc(doc(db, targetKoleksi, modeEditId));
+            catatLog("Menghapus kartu", tugasAktif.judul);
+            window.tutupModal();
+        }
+    }
+}
+
+// ==========================================
+// 8. KOMENTAR
+// ==========================================
+window.renderKomentar = function(komentarArray) {
+    const list = document.getElementById("commentsList"); if (!list) return; list.innerHTML = "";
+    if(!komentarArray || komentarArray.length === 0) { list.innerHTML = "<p style='font-size:12px; color:gray;'>Belum ada komentar.</p>"; return; }
+    let role = dataProfilUser.role || 'admin';
+    komentarArray.forEach((komentar, index) => {
+        let namaTampil = dapatkanNamaTampil(komentar.user);
+        let replyBadgeHTML = komentar.replyToUser ? `<div class="reply-badge">↳ Membalas pesan dari <strong>${dapatkanNamaTampil(komentar.replyToUser)}</strong></div>` : "";
+        let btnBalas = (role === 'viewer') ? '' : `<div class="comment-actions"><button type="button" class="btn-reply-toggle" onclick="tampilkanFormBalasan(${index})">Balas</button></div>`;
+        list.innerHTML += `<div class="comment-item">${replyBadgeHTML}<div class="comment-meta"><strong>${namaTampil}</strong> • ${komentar.waktu}</div><div class="comment-text">${komentar.teks}</div>${btnBalas}<div id="replyForm_${index}" class="reply-form" style="display:none;"><input type="text" id="inputReply_${index}" placeholder="Balas ke ${namaTampil}..." onkeyup="deteksiMention(event)"><button type="button" onclick="simpanBalasan('${komentar.user}', ${index})">Kirim</button></div></div>`;
+    });
+}
+window.simpanKomentar = async function() {
+    if (dataProfilUser.role === 'viewer') return;
+    const teks = document.getElementById("inputComment").value.trim();
+    if(teks !== "" && modeEditId) {
+        let isDiPapan = dataTugas.some(t => t.id === modeEditId); let targetKoleksi = isDiPapan ? "tugas" : "arsip_tugas";
+        let tugasAktif = dataTugas.find(t => t.id === modeEditId) || dataArsip.find(t => t.id === modeEditId);
+        if(tugasAktif) {
+            let arrayKomentar = tugasAktif.komentar || []; 
+            arrayKomentar.push({ user: currentUserEmail, waktu: new Date().toLocaleString('id-ID'), teks: teks, replyToUser: null });
+            pindaiDanKirimNotifMention(teks, tugasAktif.judul);
+            await updateDoc(doc(db, targetKoleksi, modeEditId), { komentar: arrayKomentar });
+            catatLog("Menambahkan komentar pada", tugasAktif.judul);
+            document.getElementById("inputComment").value = "";
+        }
+    }
+}
+window.tampilkanFormBalasan = function(index) { const form = document.getElementById("replyForm_" + index); form.style.display = (form.style.display === "none") ? "flex" : "none"; }
+window.simpanBalasan = async function(targetEmail, index) {
+    if (dataProfilUser.role === 'viewer') return;
+    const teks = document.getElementById("inputReply_" + index).value.trim();
+    if(teks !== "" && modeEditId) {
+        let isDiPapan = dataTugas.some(t => t.id === modeEditId); let targetKoleksi = isDiPapan ? "tugas" : "arsip_tugas";
+        let tugasAktif = dataTugas.find(t => t.id === modeEditId) || dataArsip.find(t => t.id === modeEditId);
+        if(tugasAktif) {
+            let arrayKomentar = tugasAktif.komentar || [];
+            arrayKomentar.push({ user: currentUserEmail, waktu: new Date().toLocaleString('id-ID'), teks: teks, replyToUser: targetEmail });
+            kirimNotifikasi(null, targetEmail, `<strong>${dataProfilUser.nama}</strong> membalas komentar Anda di tugas: <em>${tugasAktif.judul}</em>`);
+            pindaiDanKirimNotifMention(teks, tugasAktif.judul);
+            await updateDoc(doc(db, targetKoleksi, modeEditId), { komentar: arrayKomentar });
+            catatLog("Membalas komentar tim pada", tugasAktif.judul);
+        }
+    }
+}
+
+// ==========================================
+// 9. ARSIP TUGAS
+// ==========================================
+window.arsipTugasSatuan = async function(id) {
+    if (dataProfilUser.role === 'viewer') return;
+    let tugas = dataTugas.find(t => t.id === id);
+    if (tugas) { tugas.status = 'archived'; await setDoc(doc(db, "arsip_tugas", id), tugas); await deleteDoc(doc(db, "tugas", id)); catatLog("Mengarsipkan kartu", tugas.judul); }
+}
+window.bukaModalArsip = function() { document.getElementById("archiveModal").style.display = "flex"; renderDaftarArsip(); }
+window.renderDaftarArsip = function() {
+    const list = document.getElementById("archiveList"); if (!list) return;
+    if (dataArsip.length === 0) { list.innerHTML = "<p style='color:gray; font-size:13px; text-align:center; padding: 32px 0;'>Pusat arsip kosong.</p>"; return; }
+    list.innerHTML = "";
+    let role = dataProfilUser.role || 'admin';
+    dataArsip.forEach(tugas => {
+        let picDisplay = Array.isArray(tugas.pic) ? tugas.pic.join(', ') : (tugas.pic || "Tanpa PIC");
+        let btnPulihkan = (role !== 'viewer') ? `<button onclick="pulihkanTugas('${tugas.id}')" style="background: #282828; color: #CCFA59; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">Pulihkan</button>` : '';
+        let btnHapus = (role === 'admin') ? `<button onclick="hapusPermanenTugas('${tugas.id}')" style="background: #FFFFFF; color: #E23B3B; border: 1px solid rgba(226,59,59,0.3); padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">Hapus Permanen</button>` : '';
+
+        list.innerHTML += `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #FAFAFA; border: 1px solid rgba(40,40,40,0.1); border-radius: 8px; transition: all 0.2s ease; cursor: pointer;" onclick="bukaModalEdit('${tugas.id}')">
+                <div>
+                    <div style="font-size: 14px; font-weight: 700; color: #282828; margin-bottom: 4px;">${tugas.judul}</div>
+                    <div style="font-size: 12px; color: rgba(40,40,40,0.55);"><span style="background: rgba(40,40,40,0.06); padding: 2px 6px; border-radius: 4px; font-weight: 700; color: #282828; font-size: 10px; text-transform: uppercase;">${tugas.kategori || 'LAINNYA'}</span> &nbsp;•&nbsp; ${picDisplay}</div>
+                </div>
+                <div style="display: flex; gap: 8px;" onclick="event.stopPropagation();">
+                    ${btnPulihkan}
+                    ${btnHapus}
+                </div>
+            </div>`;
+    });
+}
+window.pulihkanTugas = async function(id) {
+    if (dataProfilUser.role === 'viewer') return;
+    let tugas = dataArsip.find(t => t.id === id);
+    if (tugas) { tugas.status = 'done'; await setDoc(doc(db, "tugas", id), tugas); await deleteDoc(doc(db, "arsip_tugas", id)); catatLog("Memulihkan tugas dari arsip", "Restore"); }
+}
+window.hapusPermanenTugas = async function(id) {
+    if (dataProfilUser.role !== 'admin') { alert("Hanya Admin yang bisa menghapus permanen."); return; }
+    if(confirm("Yakin ingin menghapus tugas ini selamanya?")) {
+        let tugas = dataArsip.find(t => t.id === id); await deleteDoc(doc(db, "arsip_tugas", id)); catatLog("Menghapus permanen tugas dari arsip", tugas ? tugas.judul : "Unknown");
+    }
+}
+
+// ==========================================
+// 10. HALAMAN PROFIL & MANAJEMEN TIM
+// ==========================================
+window.renderHalamanProfil = function() {
+    document.getElementById("inputEmailProfil").value = currentUserEmail;
+    document.getElementById("inputNamaProfil").value = dataProfilUser.nama;
+    document.getElementById("avatarPreview").src = dataProfilUser.avatar;
+    
+    const roleInput = document.getElementById("inputRoleProfil");
+    if(roleInput) roleInput.value = dataProfilUser.role || 'viewer';
+
+    const isMimin = (dataProfilUser.role === 'admin');
+    const roleDropdownContainer = document.getElementById("inputRoleProfil")?.parentElement;
+    if (roleDropdownContainer) roleDropdownContainer.style.display = isMimin ? 'block' : 'none';
+
+    const katPanel = document.getElementById("kategoriPanel");
+    if(katPanel) katPanel.style.display = isMimin ? 'block' : 'none';
+    
+    const teamPanel = document.getElementById("teamPanel");
+    if(teamPanel) {
+        teamPanel.style.display = isMimin ? 'block' : 'none';
+        if(isMimin) renderManajemenTim(); 
+    }
+
+    renderHistoryProfil();
+    renderTugasSaya(); 
+}
+
+window.simpanProfil = async function(event) {
+    event.preventDefault();
+    const namaBaru = document.getElementById("inputNamaProfil").value;
+    const avatarBaru = document.getElementById("avatarPreview").src;
+    const roleUjiCoba = document.getElementById("inputRoleProfil") ? document.getElementById("inputRoleProfil").value : dataProfilUser.role; 
+    
+    await setDoc(doc(db, "profiles", currentUserEmail), { nama: namaBaru, avatar: avatarBaru, role: roleUjiCoba }, { merge: true });
+    alert("Profil berhasil diperbarui di Cloud!");
+}
+
+window.renderManajemenTim = function() {
+    const container = document.getElementById("teamList"); if (!container) return;
+    container.innerHTML = "";
+    
+    const emails = Object.keys(semuaProfilMap);
+    if (emails.length === 0) { container.innerHTML = "<p style='color:gray; font-size:13px;'>Belum ada anggota tim lain.</p>"; return; }
+
+    emails.forEach(email => {
+        const profil = semuaProfilMap[email];
+        const namaTampil = profil.nama || email.split('@')[0];
+        const roleUser = profil.role || 'viewer';
+        const avatarUser = profil.avatar || `https://ui-avatars.com/api/?name=${namaTampil}`;
+        
+        let controlHTML = "";
+        if (email === currentUserEmail) {
+            controlHTML = `<span style="font-size:12px; font-weight:bold; color: #CCFA59; background-color: #282828; padding: 4px 8px; border-radius: 4px;">Anda (Admin)</span>`;
+        } else {
+            controlHTML = `
+                <select class="sprout-select" style="padding: 4px 8px; font-size: 12px; height: auto;" onchange="ubahRoleMember('${email}', this.value)">
+                    <option value="admin" ${roleUser === 'admin' ? 'selected' : ''}>Admin</option>
+                    <option value="editor" ${roleUser === 'editor' ? 'selected' : ''}>Editor</option>
+                    <option value="viewer" ${roleUser === 'viewer' ? 'selected' : ''}>Viewer</option>
+                </select>`;
+        }
+
+        container.innerHTML += `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(40,40,40,0.05);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <img src="${avatarUser}" alt="${namaTampil}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                    <div><div style="font-size: 14px; font-weight: bold; color: #282828;">${namaTampil}</div><div style="font-size: 12px; color: gray;">${email}</div></div>
+                </div>
+                <div>${controlHTML}</div>
+            </div>`;
+    });
+}
+
+window.ubahRoleMember = async function(emailTarget, roleBaru) {
+    if (dataProfilUser.role !== 'admin') { alert("Akses ditolak: Hanya Admin yang dapat mengubah peran."); return; }
+    try {
+        await updateDoc(doc(db, "profiles", emailTarget), { role: roleBaru });
+        catatLog("Mengubah peran pengguna", emailTarget + " menjadi " + roleBaru);
+    } catch (error) { console.error("Gagal mengubah role:", error); alert("Terjadi kesalahan."); }
+}
+
+window.renderHistoryProfil = function() {
+    const historyList = document.getElementById("userHistoryList"); if (!historyList) return;
+    const myLogs = dataLog.filter(log => log.pengguna === currentUserEmail);
+    if (myLogs.length === 0) { historyList.innerHTML = "<p style='color:gray; font-size:13px;'>Belum ada aktivitas.</p>"; return; }
+    historyList.innerHTML = ""; myLogs.forEach(log => { historyList.innerHTML += `<div class="history-item"><div class="history-time">${log.waktu}</div><div class="history-content">Memproses <strong>${log.tugas}</strong>: ${log.aksi}</div></div>`; });
+}
+window.gantiAvatar = function(event) {
+    const file = event.target.files[0];
+    if (file) { const reader = new FileReader(); reader.onload = function(e) { document.getElementById('avatarPreview').src = e.target.result; }; reader.readAsDataURL(file); }
+}
+
+// ==========================================
+// 11. PENGATURAN KATEGORI & PIC TAGS
+// ==========================================
+window.renderPengaturanKategori = function() {
+    const container = document.getElementById("listKategoriPengaturan"); if(!container) return; container.innerHTML = "";
+    daftarKategoriGlobal.forEach((kat, index) => {
+        container.innerHTML += `<div style="display: flex; justify-content: space-between; align-items: center; background: #FAFAFA; padding: 10px 12px; border: 1px solid rgba(40,40,40,0.1); border-radius: 8px;"><span style="font-size: 13px; font-weight: 700; color: #282828;">${kat}</span><button type="button" onclick="hapusKategori(${index})" style="background: none; border: none; color: #E23B3B; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 4px;">&times;</button></div>`;
+    });
+}
+window.tambahKategoriBaru = async function() {
+    if (dataProfilUser.role !== 'admin') return;
+    const val = document.getElementById("inputKategoriBaru").value.trim();
+    if(val !== "" && !daftarKategoriGlobal.includes(val)) { let newList = [...daftarKategoriGlobal, val]; await setDoc(doc(db, "pengaturan", "kategori_board"), { list: newList }); document.getElementById("inputKategoriBaru").value = ""; catatLog("Menambahkan kategori", val); }
+}
+window.hapusKategori = async function(index) {
+    if (dataProfilUser.role !== 'admin') return;
+    let deleted = daftarKategoriGlobal[index];
+    if(confirm(`Hapus kategori "${deleted}" secara global?`)) { let newList = [...daftarKategoriGlobal]; newList.splice(index, 1); if(newList.length === 0) newList = ["Lainnya"]; await setDoc(doc(db, "pengaturan", "kategori_board"), { list: newList }); catatLog("Menghapus kategori", deleted); }
+}
+window.renderDropdownKategori = function() {
+    const select = document.getElementById("inputCategory"); if(!select) return;
+    const currentValue = select.value; select.innerHTML = "";
+    daftarKategoriGlobal.forEach(kat => { select.innerHTML += `<option value="${kat}">${kat}</option>`; });
+    if(daftarKategoriGlobal.includes(currentValue)) select.value = currentValue;
+}
+
+window.renderPicTags = function() {
+    const container = document.getElementById('selectedPics'); if(!container) return; container.innerHTML = '';
+    currentSelectedPics.forEach((pic, index) => {
+        let hapusBtn = (dataProfilUser.role === 'viewer') ? '' : `<span class="remove-tag" onclick="hapusPic(${index})" style="cursor: pointer; font-size: 14px; opacity: 0.6;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">&times;</span>`;
+        container.innerHTML += `<span class="pic-tag" style="display: inline-flex; align-items: center; background-color: #CCFA59; color: #282828; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; gap: 6px;">${pic} ${hapusBtn}</span>`;
+    });
+}
+window.hapusPic = function(index) { if (dataProfilUser.role === 'viewer') return; currentSelectedPics.splice(index, 1); renderPicTags(); }
+window.tambahPic = function(nama) {
+    if (dataProfilUser.role === 'viewer') return;
+    if(!currentSelectedPics.includes(nama)) currentSelectedPics.push(nama);
+    document.getElementById('inputPerson').value = ''; document.getElementById('picSuggestions').style.display = 'none'; renderPicTags();
+}
+
+function setupAutocompletePIC() {
+    const input = document.getElementById('inputPerson'); if(!input) return;
+    input.addEventListener('input', function(e) {
+        if (dataProfilUser.role === 'viewer') return;
+        const val = e.target.value.toLowerCase(); const box = document.getElementById('picSuggestions'); box.innerHTML = '';
+        if(!val) { box.style.display = 'none'; return; }
+        const members = window.dapatkanDaftarMember(); 
+        const cocok = members.filter(m => m.toLowerCase().includes(val) && !currentSelectedPics.includes(m));
+        if(cocok.length > 0) { 
+            box.style.display = 'block'; cocok.forEach(m => { box.innerHTML += `<div class="suggestion-item" onclick="tambahPic('${m}')">${m}</div>`; }); 
+        } else { 
+            box.style.display = 'block'; box.innerHTML = `<div class="suggestion-item" onclick="tambahPic('${e.target.value}')"><em>+ Tambah "${e.target.value}"</em></div>`; 
+        }
+    });
+    input.addEventListener('keydown', function(e) {
+        if(e.key === 'Backspace' && e.target.value === '' && currentSelectedPics.length > 0) { if (dataProfilUser.role === 'viewer') return; currentSelectedPics.pop(); renderPicTags(); }
+    });
+    document.addEventListener('click', function(e) {
+        if(!e.target.closest('.multi-select-container')) { const box = document.getElementById('picSuggestions'); if(box) box.style.display = 'none'; }
+    });
+}
+setupAutocompletePIC();
+
+// ==========================================
+// 12. LOG HISTORI & LAPORAN
+// ==========================================
+window.renderTabelLog = function() {
+    const tbody = document.getElementById("logTableBody"); if (!tbody) return; tbody.innerHTML = "";
+    dataLog.forEach(log => { tbody.innerHTML += `<tr><td>${log.waktu}</td><td>${dapatkanNamaTampil(log.pengguna)}</td><td>${log.aksi}</td><td><strong>${log.tugas}</strong></td></tr>`; });
+}
+
+window.renderLaporan = function() {
+    const chartContainer = document.getElementById("categoryChart"); if (!chartContainer) return; 
+    const filterWaktu = document.getElementById("filterWaktu"); const nilaiFilter = filterWaktu ? filterWaktu.value : 'all';
+    const waktuSekarang = new Date();
+    
+    let selesai = 0, pending = 0, backlog = 0; let statsKategori = {};
+    const gabunganData = [...dataTugas, ...dataArsip];
+
+    gabunganData.forEach(tugas => {
+        let waktuDibuat = waktuSekarang;
+        if (tugas.id && tugas.id.includes('_')) {
+            const extractedTime = parseInt(tugas.id.split('_')[1]);
+            if (!isNaN(extractedTime)) waktuDibuat = new Date(extractedTime);
+        }
+        
+        let masukHitungan = false;
+        if (nilaiFilter === 'all') masukHitungan = true;
+        else if (nilaiFilter === 'week') masukHitungan = waktuDibuat >= new Date(waktuSekarang.getTime() - (7 * 24 * 60 * 60 * 1000));
+        else if (nilaiFilter === 'month') masukHitungan = (waktuDibuat.getMonth() === waktuSekarang.getMonth() && waktuDibuat.getFullYear() === waktuSekarang.getFullYear());
+        else if (nilaiFilter === 'year') masukHitungan = (waktuDibuat.getFullYear() === waktuSekarang.getFullYear());
+
+        if (masukHitungan) {
+            if (tugas.status === 'done' || tugas.status === 'review' || tugas.status === 'archived') selesai++;
+            else if (tugas.status === 'doing') pending++;
+            else if (tugas.status === 'todo') backlog++;
+
+            let kat = tugas.kategori || "Lainnya";
+            if (!statsKategori[kat]) statsKategori[kat] = { total: 0, selesai: 0 };
+            statsKategori[kat].total++;
+            if (tugas.status === 'done' || tugas.status === 'review' || tugas.status === 'archived') statsKategori[kat].selesai++;
+        }
+    });
+
+    if(document.getElementById("countSelesai")) document.getElementById("countSelesai").innerText = selesai;
+    if(document.getElementById("countPending")) document.getElementById("countPending").innerText = pending;
+    if(document.getElementById("countBacklog")) document.getElementById("countBacklog").innerText = backlog;
+
+    let htmlGrafik = "";
+    let arrKategori = Object.keys(statsKategori).map(key => { return { nama: key, persen: Math.round((statsKategori[key].selesai / statsKategori[key].total) * 100) }; }).sort((a, b) => b.persen - a.persen);
+
+    arrKategori.forEach(kat => {
+        let colorClass = kat.persen >= 80 ? 'acid' : (kat.persen >= 40 ? 'black' : 'grey');
+        let widthStyle = kat.persen === 0 ? "width: 5%;" : `width: ${kat.persen}%;`;
+        htmlGrafik += `<div class="progress-row"><div class="progress-label">${kat.nama}</div><div class="progress-track"><div class="progress-fill ${colorClass}" style="${widthStyle}"><span class="progress-text">${kat.persen}%</span></div></div></div>`;
+    });
+
+    if (arrKategori.length === 0) htmlGrafik = "<p style='color:gray; font-size:13px; text-align:center;'>Belum ada data tugas.</p>";
+    chartContainer.innerHTML = htmlGrafik;
+}
+
+window.downloadReportHTML = function() {
+    const filterDropdown = document.getElementById("filterWaktu");
+    const filterTeks = filterDropdown ? filterDropdown.options[filterDropdown.selectedIndex].text : "Semua Waktu";
+    const selesai = document.getElementById("countSelesai") ? document.getElementById("countSelesai").innerText : "0";
+    const pending = document.getElementById("countPending") ? document.getElementById("countPending").innerText : "0";
+    const backlog = document.getElementById("countBacklog") ? document.getElementById("countBacklog").innerText : "0";
+    const chartContainer = document.getElementById("categoryChart");
+    const chartHTMLData = chartContainer ? chartContainer.innerHTML : "";
+
+    const htmlContent = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Sprout Report - ${filterTeks}</title><style>body { font-family: 'Segoe UI', Arial, sans-serif; background: #f7f7f7; color: #282828; padding: 40px; }.container { max-width: 900px; margin: 0 auto; background: transparent; }h1 { margin-bottom: 5px; } p { color: #666; margin-bottom: 30px; }.stats { display: flex; gap: 20px; margin-bottom: 40px; }.stat-box { flex: 1; padding: 24px; background: #fff; border-radius: 12px; border: 1px solid rgba(40,40,40,0.07); }.stat-box h2 { font-size: 40px; margin: 0 0 10px 0; }.chart-wrapper { background: #f7f7f7; padding-right: 40px; }.progress-row { display: flex; align-items: center; margin-bottom: 20px; }.progress-label { width: 160px; font-weight: bold; font-size: 14px; text-align: right; padding-right: 24px; }.progress-track { flex: 1; background-color: #FFFFFF; border: 1px solid rgba(40,40,40,0.07); border-radius: 8px; height: 48px; position: relative; overflow: hidden; }.progress-fill { height: 100%; border-radius: 8px; display: flex; align-items: center; justify-content: flex-end; padding-right: 20px; }.progress-fill.acid { background-color: #CCFA59; color: #282828; }.progress-fill.black { background-color: #282828; color: #CCFA59; }.progress-fill.grey { background-color: rgba(40,40,40,0.2); color: #282828; }.progress-text { font-weight: bold; font-size: 15px; }</style></head><body><div class="container"><h1>Laporan Kinerja Sprout</h1><p>Periode: <strong>${filterTeks}</strong> | Dihasilkan pada: ${new Date().toLocaleString('id-ID')}</p><div class="stats"><div class="stat-box" style="background:#282828; color:#CCFA59; border:none;"><h2>${selesai}</h2><span style="color: rgba(255,255,255,0.7); font-size:13px; font-weight:bold;">Tugas Selesai</span></div><div class="stat-box"><h2>${pending}</h2><span style="font-size:13px; font-weight:bold;">Pending (Doing)</span></div><div class="stat-box" style="border: 1px solid rgba(226,59,59,0.3);"><h2>${backlog}</h2><span style="color:#E23B3B; font-size:13px; font-weight:bold;">Backlog (To-Do)</span></div></div><h3 style="margin-bottom: 20px; font-size: 16px;">Tingkat Penyelesaian per Kategori</h3><div class="chart-wrapper">${chartHTMLData}</div></div></body></html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Sprout_Report_${filterTeks.replace(/\s+/g, '_')}.html`;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
+// ==========================================
+// 13. TUGAS SAYA (PROFIL)
+// ==========================================
+window.renderTugasSaya = function() {
+    const container = document.getElementById("myTasksList"); if (!container) return;
+    const namaSaya = (dataProfilUser && dataProfilUser.nama) ? dataProfilUser.nama.toLowerCase().trim() : "";
+    const emailSaya = currentUserEmail ? currentUserEmail.toLowerCase().trim() : "";
+
+    if (namaSaya === "" && emailSaya === "") return;
+
+    const tugasSaya = dataTugas.filter(t => {
+        const daftarPic = Array.isArray(t.pic) ? t.pic : (t.pic ? t.pic.split(',').map(s => s.trim()) : []);
+        return daftarPic.some(p => {
+            const picDiKartu = p.toLowerCase().trim();
+            return picDiKartu === namaSaya || picDiKartu === emailSaya || namaSaya.includes(picDiKartu) || picDiKartu.includes(namaSaya);
+        });
+    });
+
+    if (tugasSaya.length === 0) {
+        container.innerHTML = "<p style='color:gray; font-size:13px; text-align:center; padding: 20px 0;'>Anda belum memiliki tugas yang ditugaskan.</p>"; return;
+    }
+
+    container.innerHTML = "";
+    tugasSaya.forEach(t => {
+        const catColor = typeof getCategoryColor === 'function' ? getCategoryColor(t.kategori) : '#CCFA59';
+        container.innerHTML += `
+            <div class="card" onclick="window.location.href='index.html?buka=${t.id}'" style="cursor: pointer; margin-bottom: 0; border: 1px solid rgba(40,40,40,0.1); transition: transform 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <span class="card-category" style="background-color: ${catColor}; color: #282828;">${t.kategori || "Lainnya"}</span>
+                    <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(40,40,40,0.4);">${t.status}</span>
+                </div>
+                <h4 style="font-size: 13px; margin: 8px 0;">${t.judul}</h4>
+                <p style="font-size: 11px; color: gray; margin: 0;">Tenggat: ${t.tenggat || "-"}</p>
+            </div>
+        `;
+    });
+}
+
+// ==========================================
+// 14. MINI GAME & MOBILE MENU
+// ==========================================
+const gameBoard = document.getElementById("gameBoard");
+if (gameBoard) { 
+    const char = document.getElementById("sproutChar"); const obs = document.getElementById("cactusObs");
+    const scoreText = document.getElementById("gameScore"); const gameOverMsg = document.getElementById("gameOverMsg");
+    let isJumping = false; let isGameOver = true; let score = 0; let checkCollision;
+
+    function lompat() {
+        if (isGameOver) { mulaiGame(); return; }
+        if (!isJumping) {
+            isJumping = true; char.classList.add("lompat");
+            setTimeout(() => { char.classList.remove("lompat"); isJumping = false; }, 500);
+        }
+    }
+    function mulaiGame() {
+        isGameOver = false; score = 0; gameOverMsg.style.display = "none"; obs.style.animation = "none"; 
+        setTimeout(() => { obs.classList.add("jalan"); }, 50);
+        if (checkCollision) clearInterval(checkCollision);
+        checkCollision = setInterval(() => {
+            let charTop = parseInt(window.getComputedStyle(char).getPropertyValue("top"));
+            let obsLeft = parseInt(window.getComputedStyle(obs).getPropertyValue("left"));
+            if (obsLeft < 70 && obsLeft > 40 && charTop >= 90) {
+                obs.style.animation = "none"; obs.classList.remove("jalan"); gameOverMsg.style.display = "block";
+                isGameOver = true; clearInterval(checkCollision);
+            } else if (!isGameOver) { score++; scoreText.innerText = Math.floor(score / 10); }
+        }, 10);
+    }
+    document.addEventListener("keydown", function(event) { if (event.code === "Space") { event.preventDefault(); lompat(); } });
+    gameBoard.addEventListener("mousedown", lompat); gameBoard.addEventListener("touchstart", function(e){ e.preventDefault(); lompat(); });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const hamburgerBtn = document.getElementById('hamburgerBtn'); const navLinks = document.getElementById('navLinks');
+    if (hamburgerBtn && navLinks) {
+        hamburgerBtn.addEventListener('click', (e) => { e.stopPropagation(); navLinks.classList.toggle('show-menu'); });
+        document.addEventListener('click', (e) => { if (!navLinks.contains(e.target) && !hamburgerBtn.contains(e.target)) navLinks.classList.remove('show-menu'); });
+    }
+});
