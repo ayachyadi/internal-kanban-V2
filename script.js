@@ -121,27 +121,53 @@ window.tandaiSemuaDibaca = async function() {
 window.deteksiMention = function(e) {
     const target = e.target;
     const val = target.tagName === 'DIV' ? target.innerText.replace(/\u00A0/g, ' ') : target.value;
-    const words = val.split(/[\s\n]+/); const lastWord = words[words.length - 1];
+    const words = val.split(/[\s\n]+/); 
+    const lastWord = words[words.length - 1];
     const kotakSaran = document.getElementById('mentionBox');
+
     if (lastWord.startsWith('@')) {
         const keyword = lastWord.substring(1).toLowerCase();
-        const members = Array.from(new Set([...Object.values(semuaProfilMap).map(p => p.nama)]));
+        
+        // 1. KEMBALIKAN DATA DUMMY (Agar Anda bisa mengetes fiturnya sebelum tim bergabung)
+        const members = Array.from(new Set([
+            ...Object.values(semuaProfilMap).map(p => p.nama),
+            "Budi Santoso", "Siti Aminah", "Andi Susanto", "Rina Marlina", "Dewi Lestari"
+        ]));
+        
         const cocok = members.filter(m => m.toLowerCase().includes(keyword));
+        
         if (cocok.length > 0) {
-            aktifMentionTarget = target; kotakSaran.innerHTML = '';
-            cocok.forEach(m => { kotakSaran.innerHTML += `<div class="suggestion-item" onmousedown="event.preventDefault(); pilihMention('${m}', '${lastWord}')">${m}</div>`; });
+            aktifMentionTarget = target; 
+            kotakSaran.innerHTML = '';
+            cocok.forEach(m => { 
+                kotakSaran.innerHTML += `<div class="suggestion-item" onmousedown="event.preventDefault(); pilihMention('${m}', '${lastWord}')">${m}</div>`; 
+            });
+            
+            // 2. KEMBALIKAN POSISI MELAYANG & Z-INDEX TERTINGGI (Ini yang membuatnya hilang di balik Modal!)
+            kotakSaran.style.position = 'fixed';
+            kotakSaran.style.zIndex = '1000000';
+            
             const rect = target.getBoundingClientRect();
             if (target.tagName === 'DIV') {
                 const sel = window.getSelection();
                 if (sel.rangeCount > 0) {
-                    const range = sel.getRangeAt(0).cloneRange(); range.collapse(false);
+                    const range = sel.getRangeAt(0).cloneRange(); 
+                    range.collapse(false);
                     const cursorRect = range.getBoundingClientRect();
-                    kotakSaran.style.top = (cursorRect.bottom + 5) + 'px'; kotakSaran.style.left = cursorRect.left + 'px';
+                    kotakSaran.style.top = (cursorRect.bottom + 5) + 'px'; 
+                    kotakSaran.style.left = cursorRect.left + 'px';
                 }
-            } else { kotakSaran.style.top = (rect.bottom + 5) + 'px'; kotakSaran.style.left = rect.left + 'px'; }
+            } else { 
+                kotakSaran.style.top = (rect.bottom + 5) + 'px'; 
+                kotakSaran.style.left = rect.left + 'px'; 
+            }
             kotakSaran.style.display = 'block';
-        } else { kotakSaran.style.display = 'none'; }
-    } else { kotakSaran.style.display = 'none'; }
+        } else { 
+            kotakSaran.style.display = 'none'; 
+        }
+    } else { 
+        kotakSaran.style.display = 'none'; 
+    }
 }
 window.pilihMention = function(namaMember, keywordLama) {
     if(!aktifMentionTarget) return;
