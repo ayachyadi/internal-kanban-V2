@@ -65,15 +65,26 @@ window.inisialisasiDataRealtime = function() {
             semuaProfilMap[doc.id] = doc.data(); 
             if (currentUserEmail && doc.id === currentUserEmail) {
                 dataProfilUser = doc.data();
-                
-                // FIX: Menampilkan foto profil di Navbar (tanpa mengubah gambar dasarnya)
                 const navIcon = document.getElementById("navProfileIcon");
                 if (navIcon) navIcon.src = dataProfilUser.avatar;
             }
         });
         
+        // --- ALAT PELACAK UNTUK CONSOLE ---
+        console.log("=== DIAGNOSTIK PROFIL FIREBASE ===");
+        console.log("Email Anda:", currentUserEmail);
+        console.log("Total Anggota Ditemukan:", Object.keys(semuaProfilMap).length);
+        console.log("Data Tim:", semuaProfilMap);
+        // ----------------------------------
+        
         if (document.getElementById("inputNamaProfil") && typeof renderHalamanProfil === "function") renderHalamanProfil();
         if (document.getElementById("teamList") && typeof renderManajemenTim === "function") renderManajemenTim();
+        
+    }, (error) => {
+        // MENANGKAP ERROR DIAM-DIAM KE LAYAR
+        console.error("ERROR AKSES FIREBASE:", error);
+        const teamList = document.getElementById("teamList");
+        if (teamList) teamList.innerHTML = `<p style='color:#E23B3B; font-size:13px; font-weight:bold;'>Akses Ditolak: ${error.message}</p>`;
     });
 
     // 4.2 Papan Kanban
