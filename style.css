@@ -1564,3 +1564,28 @@ body {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* =========================================
+   PENCARIAN (SEARCH BAR)
+========================================= */
+#searchInput {
+    width: 100%;
+    padding: 10px 16px 10px 36px; /* Jarak ekstra di kiri untuk ikon kaca pembesar */
+    border: 1px solid rgba(40,40,40,0.15);
+    border-radius: 8px;
+    background-color: #FFFFFF;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13px;
+    color: #282828;
+    transition: all 0.2s ease;
+}
+
+#searchInput:focus {
+    outline: none;
+    border-color: #282828;
+    box-shadow: 0 0 0 3px rgba(40, 40, 40, 0.1); /* Efek cincin saat diklik */
+}
+
+#searchInput::placeholder {
+    color: rgba(40,40,40,0.4);
+}
