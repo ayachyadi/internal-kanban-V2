@@ -997,3 +997,100 @@ window.renderTugasSaya = function() {
         `;
     });
 }
+
+// ==========================================
+// MESIN PEMUAT DATA REAL-TIME (FIREBASE)
+// ==========================================
+window.inisialisasiDataRealtime = function() {
+    
+    // 1. Pemuat Data Profil & Tim
+    onSnapshot(collection(db, "profiles"), (snapshot) => {
+        semuaProfilMap = {};
+        snapshot.forEach(doc => { 
+            semuaProfilMap[doc.id] = doc.data(); 
+            // Amankan data profil diri sendiri
+            if (currentUserEmail && doc.id === currentUserEmail) {
+                dataProfilUser = doc.data();
+            }
+        });
+        
+        // Auto-refresh Profil
+        if (document.getElementById("inputNamaProfil") && typeof renderHalamanProfil === "function") {
+            renderHalamanProfil();
+        }
+        // Auto-refresh Panel Tim
+        if (document.getElementById("teamList") && typeof renderManajemenTim === "function") {
+            renderManajemenTim();
+        }
+    });
+
+    // 2. Pemuat Data Papan Kanban
+    onSnapshot(collection(db, "tugas"), (snapshot) => {
+        dataTugas = [];
+        snapshot.forEach(doc => { dataTugas.push(doc.data()); });
+        
+        if (document.getElementById("list-todo")) renderPapanKanban();
+        if (document.getElementById("categoryChart")) renderLaporan();
+        if (document.getElementById("myTasksList") && typeof renderTugasSaya === "function") renderTugasSaya();
+        
+        // Render ulang komentar jika jendela edit sedang terbuka
+        if (modeEditId && document.getElementById("cardModal")?.style.display === "flex") {
+            let tugasAktif = dataTugas.find(t => t.id === modeEditId);
+            if(tugasAktif) renderKomentar(tugasAktif.komentar || []);
+        }
+
+        // Pengecekan Deep-Link dari Halaman Profil
+        const urlParams = new URLSearchParams(window.location.search);
+        const tugasBukaId = urlParams.get('buka');
+        if (tugasBukaId && document.getElementById("cardModal") && typeof bukaModalEdit === "function") {
+            bukaModalEdit(tugasBukaId);
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+    });
+
+    // 3. Pemuat Data Arsip
+    onSnapshot(collection(db, "arsip"), (snapshot) => {
+        dataArsip = [];
+        snapshot.forEach(doc => { dataArsip.push(doc.data()); });
+        if (document.getElementById("arsipList") && document.getElementById("arsipModal")?.style.display === "flex") renderArsip();
+        if (document.getElementById("categoryChart")) renderLaporan();
+    });
+
+    // 4. Pemuat Notifikasi
+    const qNotif = query(collection(db, "notifikasi"), orderBy("timestamp", "desc"));
+    onSnapshot(qNotif, (snapshot) => {
+        dataNotifikasi = [];
+        let unreadCount = 0;
+        
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            data.id = doc.id;
+            // Hanya ambil notifikasi yang ditujukan untuk user ini
+            if (data.toEmail === currentUserEmail || data.toName === (dataProfilUser?.nama || "")) {
+                dataNotifikasi.push(data);
+                if (!data.isRead) unreadCount++;
+            }
+        });
+        
+        const badge = document.getElementById("notifBadge");
+        if (badge) {
+            if (unreadCount > 0) { 
+                badge.style.display = "flex"; 
+                badge.innerText = unreadCount; 
+            } else { 
+                badge.style.display = "none"; 
+            }
+        }
+        if (document.getElementById("userNotifList")) renderNotifikasi();
+    });
+
+    // 5. Pemuat Pengaturan Kategori Global
+    onSnapshot(doc(db, "pengaturan", "kategoriGlobal"), (docSnap) => {
+        if (docSnap.exists()) {
+            daftarKategoriGlobal = docSnap.data().list || ["Marketing", "UI/UX", "Development", "Ops"];
+        }
+        if (document.getElementById("listKategoriPengaturan") && typeof renderPengaturanKategori === "function") {
+            renderPengaturanKategori();
+        }
+    });
+}
