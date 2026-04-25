@@ -234,26 +234,39 @@ window.renderPapanKanban = function() {
         document.getElementById("list-doing").previousElementSibling.innerHTML = `<h3>Doing</h3> ${btnAddHTML.replace('TARGET', 'doing')}`;
     }
 
+    // --- MESIN PENCARI & FILTER ---
+    const searchInput = document.getElementById("searchInput");
+    const kataKunci = searchInput ? searchInput.value.toLowerCase().trim() : "";
     const metodeSort = document.getElementById("sortSelect") ? document.getElementById("sortSelect").value : "default";
-    let dataDitampilkan = [...dataTugas];
+    
+    let dataDitampilkan = dataTugas.filter(t => {
+        if (kataKunci === "") return true; // Tampilkan semua jika kotak pencarian kosong
+        
+        const judul = (t.judul || "").toLowerCase();
+        const kategori = (t.kategori || "").toLowerCase();
+        const pic = Array.isArray(t.pic) ? t.pic.join(" ").toLowerCase() : (t.pic || "").toLowerCase();
+        
+        // Cek apakah kata kunci ada di judul, kategori, atau nama PIC
+        return judul.includes(kataKunci) || kategori.includes(kataKunci) || pic.includes(kataKunci);
+    });
+
+    // --- MESIN PENGURUTAN (SORT) ---
     if (metodeSort === "dueDate") dataDitampilkan.sort((a, b) => new Date(a.tenggat || '2099-01-01') - new Date(b.tenggat || '2099-01-01'));
     else if (metodeSort === "category") dataDitampilkan.sort((a, b) => (a.kategori || '').localeCompare(b.kategori || ''));
 
+    // --- RENDER KE LAYAR ---
     dataDitampilkan.forEach(t => {
         const list = document.getElementById("list-" + t.status);
         if(list) {
             const pic = Array.isArray(t.pic) ? t.pic.join(", ") : (t.pic || "-");
-            const catColor = getCategoryColor(t.kategori); // WARNA DINAMIS
+            const catColor = getCategoryColor(t.kategori); // Panggil warna dinamis
             
-            // RBAC: Kunci kemampuan drag & drop jika Viewer
             const dragAttr = (role !== 'viewer') ? `draggable="true" ondragstart="drag(event)"` : '';
             
             list.innerHTML += `
                 <div class="card" ${dragAttr} onclick="bukaModalEdit('${t.id}')" id="${t.id}">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                        
                         <span class="card-category" style="background-color: ${catColor}; color: #282828;">${t.kategori || "Lainnya"}</span>
-                        
                         <button class="card-archive-btn" onclick="event.stopPropagation(); arsipTugasSatuan('${t.id}')" title="Arsipkan">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="21 8 21 21 3 21 3 8"></polyline>
