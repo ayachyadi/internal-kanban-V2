@@ -62,8 +62,15 @@ window.inisialisasiDataRealtime = function() {
         semuaProfilMap = {};
         snapshot.forEach(doc => { 
             semuaProfilMap[doc.id] = doc.data(); 
-            if (currentUserEmail && doc.id === currentUserEmail) dataProfilUser = doc.data();
+            if (currentUserEmail && doc.id === currentUserEmail) {
+                dataProfilUser = doc.data();
+                
+                // FIX: Menampilkan foto profil di Navbar (tanpa mengubah gambar dasarnya)
+                const navIcon = document.getElementById("navProfileIcon");
+                if (navIcon) navIcon.src = dataProfilUser.avatar;
+            }
         });
+        
         if (document.getElementById("inputNamaProfil") && typeof renderHalamanProfil === "function") renderHalamanProfil();
         if (document.getElementById("teamList") && typeof renderManajemenTim === "function") renderManajemenTim();
     });
