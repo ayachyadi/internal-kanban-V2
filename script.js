@@ -545,6 +545,9 @@ window.renderHalamanProfil = function() {
     }
 
     renderHistoryProfil();
+    
+    // 4. FITUR BARU: Memanggil daftar tugas milik user saat ini
+    renderTugasSaya(); 
 }
 window.simpanProfil = async function(event) {
     event.preventDefault();
