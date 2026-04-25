@@ -38,16 +38,23 @@
     </nav>
 
     <main class="board-container">
-        <div class="board-controls" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="board-controls" style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
+            
+            <div class="search-container" style="flex: 1; min-width: 280px; max-width: 400px; position: relative;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: rgba(40,40,40,0.4);">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="searchInput" placeholder="Cari judul, kategori, atau nama PIC..." onkeyup="renderPapanKanban()">
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <span class="control-label">Urutkan berdasarkan:</span>
                 <select id="sortSelect" class="sprout-select" onchange="renderPapanKanban()">
                     <option value="default">Terbaru Ditambahkan</option>
                     <option value="dueDate">Tenggat Waktu</option>
                     <option value="category">Kategori</option>
                 </select>
-            </div>
-            <div style="display: flex; gap: 12px;">
                 <button onclick="bukaModalArsip()" style="background-color: transparent; color: #282828; border: 1px solid rgba(40,40,40,0.15); padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">Lihat Arsip</button>
                 <button onclick="window.location.href='report.html'" style="background-color: #CCFA59; color: #282828; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">Laporan Kinerja →</button>
             </div>
