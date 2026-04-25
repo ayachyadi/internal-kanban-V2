@@ -504,23 +504,31 @@ window.hapusPermanenTugas = async function(id) {
 
 // --- PROFIL & KATEGORI GLOBAL ---
 window.renderHalamanProfil = function() {
+    // 1. Isi data dasar profil
     document.getElementById("inputEmailProfil").value = currentUserEmail;
     document.getElementById("inputNamaProfil").value = dataProfilUser.nama;
     document.getElementById("avatarPreview").src = dataProfilUser.avatar;
     
-    // Tampilkan role di dropdown testing (milik sendiri)
     const roleInput = document.getElementById("inputRoleProfil");
-    if(roleInput) roleInput.value = dataProfilUser.role || 'admin';
+    if(roleInput) roleInput.value = dataProfilUser.role || 'viewer';
 
-    // RBAC: Tampilkan panel Kategori & Panel Tim HANYA jika Admin
+    // 2. PROTEKSI ROLE: Hanya Admin yang bisa melihat dropdown pengubah role miliknya sendiri
     const isMimin = (dataProfilUser.role === 'admin');
+    
+    // Cari container (pembungkus) dari dropdown role
+    const roleDropdownContainer = document.getElementById("inputRoleProfil")?.parentElement;
+    if (roleDropdownContainer) {
+        roleDropdownContainer.style.display = isMimin ? 'block' : 'none';
+    }
+
+    // 3. PROTEKSI PANEL: Sembunyikan panel Kategori & Panel Tim jika bukan Admin
     const katPanel = document.getElementById("kategoriPanel");
     if(katPanel) katPanel.style.display = isMimin ? 'block' : 'none';
     
     const teamPanel = document.getElementById("teamPanel");
     if(teamPanel) {
         teamPanel.style.display = isMimin ? 'block' : 'none';
-        if(isMimin) renderManajemenTim(); // Gambar daftar tim!
+        if(isMimin) renderManajemenTim(); 
     }
 
     renderHistoryProfil();
