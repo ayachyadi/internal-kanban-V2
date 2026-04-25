@@ -74,11 +74,17 @@ function inisialisasiDataRealtime() {
     onSnapshot(collection(db, "tugas"), (snapshot) => {
         dataTugas = [];
         snapshot.forEach(doc => { dataTugas.push(doc.data()); });
+        
         if (document.getElementById("list-todo")) renderPapanKanban();
         if (document.getElementById("categoryChart")) renderLaporan();
         if (modeEditId && document.getElementById("cardModal")?.style.display === "flex") {
             let tugasAktif = dataTugas.find(t => t.id === modeEditId);
             if(tugasAktif) renderKomentar(tugasAktif.komentar || []);
+        }
+        
+        // FITUR BARU: Segarkan daftar 'Tugas Saya' begitu data berhasil diunduh!
+        if (document.getElementById("myTasksList") && typeof renderTugasSaya === "function") {
+            renderTugasSaya();
         }
     });
 
