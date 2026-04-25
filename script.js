@@ -82,9 +82,19 @@ function inisialisasiDataRealtime() {
             if(tugasAktif) renderKomentar(tugasAktif.komentar || []);
         }
         
-        // FITUR BARU: Segarkan daftar 'Tugas Saya' begitu data berhasil diunduh!
         if (document.getElementById("myTasksList") && typeof renderTugasSaya === "function") {
             renderTugasSaya();
+        }
+
+        // FITUR BARU: Deep-Linking (Buka otomatis dari halaman profil)
+        const urlParams = new URLSearchParams(window.location.search);
+        const tugasBukaId = urlParams.get('buka'); // Menangkap ID dari URL
+        
+        if (tugasBukaId && document.getElementById("cardModal") && typeof bukaModalEdit === "function") {
+            bukaModalEdit(tugasBukaId); // Buka jendelanya secara otomatis!
+            
+            // Bersihkan URL dari browser agar kartu tidak terus-terusan terbuka saat di-refresh
+            window.history.replaceState(null, '', window.location.pathname);
         }
     });
 
@@ -936,14 +946,7 @@ window.renderTugasSaya = function() {
         const catColor = typeof getCategoryColor === 'function' ? getCategoryColor(t.kategori) : '#CCFA59';
         
         container.innerHTML += `
-            <div class="card" onclick="bukaModalEdit('${t.id}')" style="cursor: pointer; margin-bottom: 0; border: 1px solid rgba(40,40,40,0.1);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <span class="card-category" style="background-color: ${catColor}; color: #282828;">${t.kategori || "Lainnya"}</span>
-                    <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(40,40,40,0.4);">${t.status}</span>
-                </div>
-                <h4 style="font-size: 13px; margin: 8px 0;">${t.judul}</h4>
-                <p style="font-size: 11px; color: gray; margin: 0;">Tenggat: ${t.tenggat || "-"}</p>
-            </div>
+            <div class="card" onclick="window.location.href='index.html?buka=${t.id}'" style="cursor: pointer; margin-bottom: 0; border: 1px solid rgba(40,40,40,0.1); transition: transform 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
         `;
     });
 }
