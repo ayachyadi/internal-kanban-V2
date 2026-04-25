@@ -3,7 +3,7 @@
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDocs, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
 // !!! MASUKKAN CONFIG FIREBASE ANDA DI SINI !!!
 const firebaseConfig = {
@@ -25,11 +25,30 @@ let daftarKategoriGlobal = ["Desain", "Engineering", "Marketing", "Lainnya"];
 let semuaProfilMap = {}, dataProfilUser = { role: 'admin' }, currentSelectedPics = [];
 let modeEditId = null, kolomTarget = null, aktifMentionTarget = null;
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
     if (!user && (window.location.pathname.includes("index") || window.location.pathname === "/")) {
         window.location.href = "login.html";
     } else if (user) {
         currentUserEmail = user.email;
+
+        // --- FITUR BARU: AUTO-REGISTER PROFIL (MENCEGAH GHOST USER) ---
+        try {
+            const docRef = doc(db, "profiles", currentUserEmail);
+            const docSnap = await getDoc(docRef);
+            
+            // Jika pengguna ini tidak ditemukan di database profil, buatkan otomatis!
+            if (!docSnap.exists()) {
+                await setDoc(docRef, {
+                    nama: user.displayName || currentUserEmail.split('@')[0],
+                    avatar: user.photoURL || `https://ui-avatars.com/api/?name=${currentUserEmail.split('@')[0]}`,
+                    role: 'viewer' // Amankan dengan default Viewer terlebih dahulu
+                });
+            }
+        } catch (error) {
+            console.error("Gagal melakukan auto-register: ", error);
+        }
+        // --------------------------------------------------------------
+
         inisialisasiDataRealtime();
     }
 });
