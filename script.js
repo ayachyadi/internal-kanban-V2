@@ -274,12 +274,17 @@ window.renderPapanKanban = function() {
                         <span class="card-category" style="background-color: ${catColor}; color: #282828;">${t.kategori || "Lainnya"}</span>
                         <button class="card-archive-btn" onclick="event.stopPropagation(); arsipTugasSatuan('${t.id}')" title="Arsipkan">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>
+                                <polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y2="12" x2="14" y2="12"></line>
                             </svg>
                         </button>
                     </div>
                     <h4>${t.judul}</h4>
                     <p>${pic} • ${t.tenggat || "-"}</p>
+                    
+                    <div style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed rgba(40,40,40,0.1); font-size: 10px; color: rgba(40,40,40,0.5); display: flex; justify-content: space-between;">
+                        <span>Oleh: <strong>${t.createdBy || 'Sistem'}</strong></span>
+                        <span>${t.createdAt || '-'}</span>
+                    </div>
                 </div>`;
         }
     });
@@ -386,9 +391,30 @@ window.simpanTugas = async function(event) {
         }
     } else {
         const newId = "task_" + Date.now();
-        currentSelectedPics.forEach(namaPekerja => { kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menugaskan Anda pada kartu baru: <em>${judul}</em>`); });
+        // Ambil nama pembuat dari data profil yang sedang login
+        const namaPembuat = dataProfilUser.nama || currentUserEmail.split('@')[0];
+        const waktuBuat = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+
+        currentSelectedPics.forEach(namaPekerja => { 
+            kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menugaskan Anda pada kartu baru: <em>${judul}</em>`); 
+        });
+        
         pindaiDanKirimNotifMention(deskripsiRichText, judul);
-        await setDoc(doc(db, "tugas", newId), { id: newId, status: isDone ? 'review' : kolomTarget, judul: judul, kategori: kategori, tenggat: tenggat, pic: [...currentSelectedPics], deskripsi: deskripsiRichText, isDone: isDone, komentar: [] });
+
+        // Tambahkan createdBy dan createdAt ke dalam database
+        await setDoc(doc(db, "tugas", newId), { 
+            id: newId, 
+            status: isDone ? 'review' : kolomTarget, 
+            judul: judul, 
+            kategori: kategori, 
+            tenggat: tenggat, 
+            pic: [...currentSelectedPics], 
+            deskripsi: deskripsiRichText, 
+            isDone: isDone, 
+            komentar: [],
+            createdBy: namaPembuat,
+            createdAt: waktuBuat
+        });
         catatLog("Membuat kartu baru", judul);
     }
     window.tutupModal();
