@@ -577,36 +577,76 @@ window.simpanProfil = async function(event) {
 // ==========================================
 // MANAJEMEN TIM (KHUSUS ADMIN)
 // ==========================================
+// ==========================================
+// MANAJEMEN TIM (KHUSUS ADMIN)
+// ==========================================
 window.renderManajemenTim = function() {
-    const container = document.getElementById("listTeamPengaturan");
+    const container = document.getElementById("teamList");
     if (!container) return;
+    
     container.innerHTML = "";
+    
+    // Ambil semua email dari database profil yang sudah tersinkronisasi
+    const emails = Object.keys(semuaProfilMap);
+    
+    if (emails.length === 0) {
+        container.innerHTML = "<p style='color:gray; font-size:13px;'>Belum ada anggota tim lain.</p>";
+        return;
+    }
 
-    // Membongkar data semua pengguna dari Firebase
-    for (let email in semuaProfilMap) {
-        let user = semuaProfilMap[email];
-        let userRole = user.role || 'viewer'; // Jika belum punya role, anggap viewer
+    emails.forEach(email => {
+        const profil = semuaProfilMap[email];
         
-        // Mencegah admin membuang status adminnya sendiri dari panel ini 
-        // (Biar tidak tidak sengaja terkunci dari sistem)
-        let lockDiriSendiri = (email === currentUserEmail) ? 'disabled title="Gunakan form profil di atas untuk role Anda sendiri"' : '';
+        // PENGAMANAN DATA: Jika nama kosong, gunakan bagian depan email (sebelum huruf @)
+        const namaTampil = profil.nama || email.split('@')[0];
+        const roleUser = profil.role || 'viewer';
+        const avatarUser = profil.avatar || `https://ui-avatars.com/api/?name=${namaTampil}`;
+        
+        // Jangan tampilkan dropdown untuk diri sendiri agar Admin tidak tak sengaja mengunci dirinya
+        let controlHTML = "";
+        if (email === currentUserEmail) {
+            controlHTML = `<span style="font-size:12px; font-weight:bold; color: #CCFA59; background-color: #282828; padding: 4px 8px; border-radius: 4px;">Anda (Admin)</span>`;
+        } else {
+            controlHTML = `
+                <select class="sprout-select" style="padding: 4px 8px; font-size: 12px; height: auto;" onchange="ubahRoleMember('${email}', this.value)">
+                    <option value="admin" ${roleUser === 'admin' ? 'selected' : ''}>Admin</option>
+                    <option value="editor" ${roleUser === 'editor' ? 'selected' : ''}>Editor</option>
+                    <option value="viewer" ${roleUser === 'viewer' ? 'selected' : ''}>Viewer</option>
+                </select>
+            `;
+        }
 
         container.innerHTML += `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #FAFAFA; padding: 12px; border: 1px solid rgba(40,40,40,0.1); border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(40,40,40,0.05);">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <img src="${user.avatar || 'https://ui-avatars.com/api/?name='+user.nama+'&background=CCFA59&color=282828'}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                    <img src="${avatarUser}" alt="${namaTampil}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
                     <div>
-                        <div style="font-size: 13px; font-weight: 700; color: #282828;">${user.nama}</div>
-                        <div style="font-size: 11px; color: rgba(40,40,40,0.6);">${email}</div>
+                        <div style="font-size: 14px; font-weight: bold; color: #282828;">${namaTampil}</div>
+                        <div style="font-size: 12px; color: gray;">${email}</div>
                     </div>
                 </div>
-                <select class="sprout-select" style="padding: 4px 8px; font-size: 12px; min-width: 100px;" onchange="ubahRolePengguna('${email}', this.value)" ${lockDiriSendiri}>
-                    <option value="admin" ${userRole === 'admin' ? 'selected' : ''}>Admin</option>
-                    <option value="editor" ${userRole === 'editor' ? 'selected' : ''}>Editor</option>
-                    <option value="viewer" ${userRole === 'viewer' ? 'selected' : ''}>Viewer</option>
-                </select>
+                <div>
+                    ${controlHTML}
+                </div>
             </div>
         `;
+    });
+}
+
+// Fungsi Pemicu Perubahan Role
+window.ubahRoleMember = async function(emailTarget, roleBaru) {
+    if (dataProfilUser.role !== 'admin') {
+        alert("Akses ditolak: Hanya Admin yang dapat mengubah peran.");
+        return;
+    }
+    
+    try {
+        await updateDoc(doc(db, "profiles", emailTarget), { role: roleBaru });
+        catatLog("Mengubah peran pengguna", emailTarget + " menjadi " + roleBaru);
+        // UI tidak perlu direfresh manual karena onSnapshot profil (Real-time) akan otomatis menggambarnya ulang
+    } catch (error) {
+        console.error("Gagal mengubah role:", error);
+        alert("Terjadi kesalahan. Pastikan koneksi internet Anda stabil.");
     }
 }
 
