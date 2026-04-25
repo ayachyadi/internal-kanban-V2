@@ -104,7 +104,7 @@ async function kirimNotifikasi(toName, toEmail, pesan) {
     await addDoc(collection(db, "notifikasi"), { toName: toName, toEmail: toEmail, pesan: pesan, isRead: false, timestamp: Date.now() });
 }
 window.pindaiDanKirimNotifMention = function(teks, judulTugas) {
-    let members = Array.from(new Set([...Object.values(semuaProfilMap).map(p => p.nama)]));
+    let members = window.dapatkanDaftarMember(); // Memanggil buku telepon terpusat
     members.forEach(member => { if (teks.includes('@' + member)) kirimNotifikasi(member, null, `<strong>${dataProfilUser.nama}</strong> menyebut Anda di tugas: <em>${judulTugas}</em>`); });
 }
 window.renderNotifikasi = function() {
@@ -118,6 +118,22 @@ window.tandaiSemuaDibaca = async function() {
     for (let n of unread) await updateDoc(doc(db, "notifikasi", n.id), { isRead: true });
 }
 
+// Fungsi Terpusat: Menggabungkan nama dari Database & Dummy
+window.dapatkanDaftarMember = function() {
+    let members = new Set(["Budi Santoso", "Siti Aminah", "Andi Susanto", "Rina Marlina", "Dewi Lestari"]);
+    
+    // Masukkan diri sendiri
+    if (dataProfilUser && dataProfilUser.nama) members.add(dataProfilUser.nama);
+    
+    // Masukkan semua orang dari database profil
+    for (let email in semuaProfilMap) {
+        if (semuaProfilMap[email] && semuaProfilMap[email].nama) {
+            members.add(semuaProfilMap[email].nama);
+        }
+    }
+    return Array.from(members);
+}
+
 window.deteksiMention = function(e) {
     const target = e.target;
     const val = target.tagName === 'DIV' ? target.innerText.replace(/\u00A0/g, ' ') : target.value;
@@ -127,13 +143,7 @@ window.deteksiMention = function(e) {
 
     if (lastWord.startsWith('@')) {
         const keyword = lastWord.substring(1).toLowerCase();
-        
-        // 1. KEMBALIKAN DATA DUMMY (Agar Anda bisa mengetes fiturnya sebelum tim bergabung)
-        const members = Array.from(new Set([
-            ...Object.values(semuaProfilMap).map(p => p.nama),
-            "Budi Santoso", "Siti Aminah", "Andi Susanto", "Rina Marlina", "Dewi Lestari"
-        ]));
-        
+        const members = window.dapatkanDaftarMember(); // Panggil Buku Telepon Global
         const cocok = members.filter(m => m.toLowerCase().includes(keyword));
         
         if (cocok.length > 0) {
@@ -143,7 +153,7 @@ window.deteksiMention = function(e) {
                 kotakSaran.innerHTML += `<div class="suggestion-item" onmousedown="event.preventDefault(); pilihMention('${m}', '${lastWord}')">${m}</div>`; 
             });
             
-            // 2. KEMBALIKAN POSISI MELAYANG & Z-INDEX TERTINGGI (Ini yang membuatnya hilang di balik Modal!)
+            // Mengembalikan z-index dan posisi fixed agar kotak melayang di atas modal
             kotakSaran.style.position = 'fixed';
             kotakSaran.style.zIndex = '1000000';
             
@@ -162,13 +172,10 @@ window.deteksiMention = function(e) {
                 kotakSaran.style.left = rect.left + 'px'; 
             }
             kotakSaran.style.display = 'block';
-        } else { 
-            kotakSaran.style.display = 'none'; 
-        }
-    } else { 
-        kotakSaran.style.display = 'none'; 
-    }
+        } else { kotakSaran.style.display = 'none'; }
+    } else { kotakSaran.style.display = 'none'; }
 }
+
 window.pilihMention = function(namaMember, keywordLama) {
     if(!aktifMentionTarget) return;
     if (aktifMentionTarget.tagName === 'DIV') {
@@ -601,24 +608,63 @@ window.renderPicTags = function() {
         container.innerHTML += `<span class="pic-tag" style="display: inline-flex; align-items: center; background-color: #CCFA59; color: #282828; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; gap: 6px;">${pic} ${hapusBtn}</span>`;
     });
 }
-window.hapusPic = function(index) { if (dataProfilUser.role === 'viewer') return; currentSelectedPics.splice(index, 1); renderPicTags(); }
+
+window.hapusPic = function(index) { 
+    if (dataProfilUser.role === 'viewer') return; 
+    currentSelectedPics.splice(index, 1); 
+    renderPicTags(); 
+}
+
 window.tambahPic = function(nama) {
     if (dataProfilUser.role === 'viewer') return;
     if(!currentSelectedPics.includes(nama)) currentSelectedPics.push(nama);
-    document.getElementById('inputPerson').value = ''; document.getElementById('picSuggestions').style.display = 'none'; renderPicTags();
+    document.getElementById('inputPerson').value = ''; 
+    document.getElementById('picSuggestions').style.display = 'none'; 
+    renderPicTags();
 }
+
 function setupAutocompletePIC() {
-    const input = document.getElementById('inputPerson'); if(!input) return;
+    const input = document.getElementById('inputPerson'); 
+    if(!input) return;
+
     input.addEventListener('input', function(e) {
         if (dataProfilUser.role === 'viewer') return;
-        const val = e.target.value.toLowerCase(); const box = document.getElementById('picSuggestions'); box.innerHTML = '';
+        const val = e.target.value.toLowerCase(); 
+        const box = document.getElementById('picSuggestions'); 
+        box.innerHTML = '';
+        
         if(!val) { box.style.display = 'none'; return; }
-        const members = Array.from(new Set([...Object.values(semuaProfilMap).map(p => p.nama)]));
+        
+        const members = window.dapatkanDaftarMember(); // Gunakan Buku Telepon yang sama
         const cocok = members.filter(m => m.toLowerCase().includes(val) && !currentSelectedPics.includes(m));
-        if(cocok.length > 0) { box.style.display = 'block'; cocok.forEach(m => { box.innerHTML += `<div class="suggestion-item" onclick="tambahPic('${m}')">${m}</div>`; }); } 
-        else { box.style.display = 'block'; box.innerHTML = `<div class="suggestion-item" onclick="tambahPic('${e.target.value}')"><em>+ Tambah "${e.target.value}"</em></div>`; }
+        
+        if(cocok.length > 0) { 
+            box.style.display = 'block'; 
+            cocok.forEach(m => { box.innerHTML += `<div class="suggestion-item" onclick="tambahPic('${m}')">${m}</div>`; }); 
+        } else { 
+            box.style.display = 'block'; 
+            box.innerHTML = `<div class="suggestion-item" onclick="tambahPic('${e.target.value}')"><em>+ Tambah "${e.target.value}"</em></div>`; 
+        }
+    });
+
+    input.addEventListener('keydown', function(e) {
+        if(e.key === 'Backspace' && e.target.value === '' && currentSelectedPics.length > 0) {
+            if (dataProfilUser.role === 'viewer') return;
+            currentSelectedPics.pop(); 
+            renderPicTags();
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if(!e.target.closest('.multi-select-container')) {
+            const box = document.getElementById('picSuggestions');
+            if(box) box.style.display = 'none';
+        }
     });
 }
+
+// WAJIB: Panggil fungsinya agar input PIC aktif merespon ketikan!
+setupAutocompletePIC();
 
 // --- GENERAL LOG & REPORT (TIDAK BERUBAH) ---
 window.renderTabelLog = function() {
