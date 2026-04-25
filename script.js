@@ -31,7 +31,8 @@ let modeEditId = null, kolomTarget = null, aktifMentionTarget = null;
 // 3. OTENTIKASI & AUTO-REGISTER
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
-    if (!user && (window.location.pathname.includes("index") || window.location.pathname === "/")) {
+    // FIX: Amankan SEMUA halaman. Jika belum login, paksa ke login.html
+    if (!user && !window.location.pathname.includes("login")) {
         window.location.href = "login.html";
     } else if (user) {
         currentUserEmail = user.email;
