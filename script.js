@@ -898,3 +898,52 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ==========================================
+// 16. DAFTAR TUGAS SAYA (PROFIL)
+// ==========================================
+window.renderTugasSaya = function() {
+    const container = document.getElementById("myTasksList");
+    if (!container) return;
+
+    // 1. Ambil nama dan email Anda, ubah ke huruf kecil semua, dan buang spasi ujungnya
+    const namaSaya = (dataProfilUser && dataProfilUser.nama) ? dataProfilUser.nama.toLowerCase().trim() : "";
+    const emailSaya = currentUserEmail ? currentUserEmail.toLowerCase().trim() : "";
+
+    if (namaSaya === "" && emailSaya === "") return; // Cegah error jika data belum siap
+
+    // 2. Filter peluru kendali (Anti-Gagal)
+    const tugasSaya = dataTugas.filter(t => {
+        const daftarPic = Array.isArray(t.pic) ? t.pic : (t.pic ? t.pic.split(',').map(s => s.trim()) : []);
+        
+        return daftarPic.some(p => {
+            const picDiKartu = p.toLowerCase().trim();
+            return picDiKartu === namaSaya || 
+                   picDiKartu === emailSaya || 
+                   namaSaya.includes(picDiKartu) || 
+                   picDiKartu.includes(namaSaya);
+        });
+    });
+
+    // 3. Render Hasil
+    if (tugasSaya.length === 0) {
+        container.innerHTML = "<p style='color:gray; font-size:13px; text-align:center; padding: 20px 0;'>Anda belum memiliki tugas yang ditugaskan.</p>";
+        return;
+    }
+
+    container.innerHTML = "";
+    tugasSaya.forEach(t => {
+        const catColor = typeof getCategoryColor === 'function' ? getCategoryColor(t.kategori) : '#CCFA59';
+        
+        container.innerHTML += `
+            <div class="card" onclick="bukaModalEdit('${t.id}')" style="cursor: pointer; margin-bottom: 0; border: 1px solid rgba(40,40,40,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <span class="card-category" style="background-color: ${catColor}; color: #282828;">${t.kategori || "Lainnya"}</span>
+                    <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(40,40,40,0.4);">${t.status}</span>
+                </div>
+                <h4 style="font-size: 13px; margin: 8px 0;">${t.judul}</h4>
+                <p style="font-size: 11px; color: gray; margin: 0;">Tenggat: ${t.tenggat || "-"}</p>
+            </div>
+        `;
+    });
+}
