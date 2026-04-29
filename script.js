@@ -3,112 +3,85 @@
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
+// !!! MASUKKAN CONFIG FIREBASE ANDA DI SINI !!!
 const firebaseConfig = {
-    apiKey: "AIzaSyBehvCRHrpP5WtJWlNEkUR4Ua-aqVsgITI",
-    authDomain: "internal-kanban.firebaseapp.com",
-    projectId: "internal-kanban",
-    storageBucket: "internal-kanban.firebasestorage.app",
-    messagingSenderId: "972175676296",
-    appId: "1:972175676296:web:bd3b11000504fae8c5a03d"
+  apiKey: "AIzaSyBehvCRHrpP5WtJWlNEkUR4Ua-aqVsgITI",
+  authDomain: "internal-kanban.firebaseapp.com",
+  projectId: "internal-kanban",
+  storageBucket: "internal-kanban.firebasestorage.app",
+  messagingSenderId: "972175676296",
+  appId: "1:972175676296:web:bd3b11000504fae8c5a03d"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// ==========================================
-// 2. VARIABEL GLOBAL
-// ==========================================
 let currentUserEmail = "Anonim";
 let dataTugas = [], dataArsip = [], dataLog = [], dataNotifikasi = [];
 let daftarKategoriGlobal = ["Desain", "Engineering", "Marketing", "Lainnya"];
 let semuaProfilMap = {}, dataProfilUser = { role: 'admin' }, currentSelectedPics = [];
 let modeEditId = null, kolomTarget = null, aktifMentionTarget = null;
 
-// ==========================================
-// 3. OTENTIKASI & AUTO-REGISTER
-// ==========================================
 onAuthStateChanged(auth, async (user) => {
-    // FIX: Amankan SEMUA halaman. Jika belum login, paksa ke login.html
-    if (!user && !window.location.pathname.includes("login")) {
+    if (!user && (window.location.pathname.includes("index") || window.location.pathname === "/")) {
         window.location.href = "login.html";
     } else if (user) {
         currentUserEmail = user.email;
+
+        // --- FITUR BARU: AUTO-REGISTER PROFIL (MENCEGAH GHOST USER) ---
         try {
             const docRef = doc(db, "profiles", currentUserEmail);
             const docSnap = await getDoc(docRef);
+            
+            // Jika pengguna ini tidak ditemukan di database profil, buatkan otomatis!
             if (!docSnap.exists()) {
                 await setDoc(docRef, {
                     nama: user.displayName || currentUserEmail.split('@')[0],
                     avatar: user.photoURL || `https://ui-avatars.com/api/?name=${currentUserEmail.split('@')[0]}`,
-                    role: 'viewer' 
+                    role: 'viewer' // Amankan dengan default Viewer terlebih dahulu
                 });
             }
-        } catch (error) { console.error("Gagal auto-register: ", error); }
+        } catch (error) {
+            console.error("Gagal melakukan auto-register: ", error);
+        }
+        // --------------------------------------------------------------
+
         inisialisasiDataRealtime();
     }
 });
 
 window.prosesLogout = function() { signOut(auth).then(() => { window.location.href = "login.html"; }); };
 
-// ==========================================
-// 4. MESIN PEMUAT DATA REAL-TIME TUNGGAL
-// ==========================================
-window.inisialisasiDataRealtime = function() {
-    
-    // 4.1 Profil & Tim
+function inisialisasiDataRealtime() {
     onSnapshot(collection(db, "profiles"), (snapshot) => {
-        semuaProfilMap = {};
-        snapshot.forEach(doc => { 
-            semuaProfilMap[doc.id] = doc.data(); 
-            if (currentUserEmail && doc.id === currentUserEmail) {
-                dataProfilUser = doc.data();
-                const navIcon = document.getElementById("navProfileIcon");
-                if (navIcon) navIcon.src = dataProfilUser.avatar;
-            }
-        });
+        snapshot.forEach(doc => { semuaProfilMap[doc.id] = doc.data(); });
         
-        // --- ALAT PELACAK UNTUK CONSOLE ---
-        console.log("=== DIAGNOSTIK PROFIL FIREBASE ===");
-        console.log("Email Anda:", currentUserEmail);
-        console.log("Total Anggota Ditemukan:", Object.keys(semuaProfilMap).length);
-        console.log("Data Tim:", semuaProfilMap);
-        // ----------------------------------
+        // Membaca Role dari Database, default ke 'admin' agar Anda tidak terkunci
+        let pData = semuaProfilMap[currentUserEmail];
+        dataProfilUser = pData || { nama: currentUserEmail.split('@')[0], avatar: "", role: 'admin' };
+        if(!dataProfilUser.role) dataProfilUser.role = 'admin'; // Proteksi fallback
+
+        const navIcon = document.getElementById("navProfileIcon");
+        if(navIcon) navIcon.src = dataProfilUser.avatar || `https://ui-avatars.com/api/?name=${dataProfilUser.nama}`;
         
-        if (document.getElementById("inputNamaProfil") && typeof renderHalamanProfil === "function") renderHalamanProfil();
-        if (document.getElementById("teamList") && typeof renderManajemenTim === "function") renderManajemenTim();
-        
-    }, (error) => {
-        // MENANGKAP ERROR DIAM-DIAM KE LAYAR
-        console.error("ERROR AKSES FIREBASE:", error);
-        const teamList = document.getElementById("teamList");
-        if (teamList) teamList.innerHTML = `<p style='color:#E23B3B; font-size:13px; font-weight:bold;'>Akses Ditolak: ${error.message}</p>`;
+        if (document.getElementById("formProfil")) renderHalamanProfil();
+        if (document.getElementById("list-todo")) renderPapanKanban(); 
     });
 
-    // 4.2 Papan Kanban
     onSnapshot(collection(db, "tugas"), (snapshot) => {
         dataTugas = [];
         snapshot.forEach(doc => { dataTugas.push(doc.data()); });
         if (document.getElementById("list-todo")) renderPapanKanban();
         if (document.getElementById("categoryChart")) renderLaporan();
-        if (document.getElementById("myTasksList") && typeof renderTugasSaya === "function") renderTugasSaya();
-        
         if (modeEditId && document.getElementById("cardModal")?.style.display === "flex") {
             let tugasAktif = dataTugas.find(t => t.id === modeEditId);
             if(tugasAktif) renderKomentar(tugasAktif.komentar || []);
         }
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const tugasBukaId = urlParams.get('buka');
-        if (tugasBukaId && document.getElementById("cardModal") && typeof bukaModalEdit === "function") {
-            bukaModalEdit(tugasBukaId);
-            window.history.replaceState(null, '', window.location.pathname);
-        }
     });
 
-    // 4.3 Arsip
     onSnapshot(collection(db, "arsip_tugas"), (snapshot) => {
         dataArsip = [];
         snapshot.forEach(doc => { dataArsip.push(doc.data()); });
@@ -116,21 +89,18 @@ window.inisialisasiDataRealtime = function() {
         if (document.getElementById("categoryChart")) renderLaporan(); 
     });
 
-    // 4.4 Pengaturan Kategori Global
     onSnapshot(doc(db, "pengaturan", "kategori_board"), (docSnap) => {
-        if (docSnap.exists()) daftarKategoriGlobal = docSnap.data().list || ["Desain", "Engineering", "Marketing", "Lainnya"];
+        if (docSnap.exists()) daftarKategoriGlobal = docSnap.data().list;
         if(document.getElementById("inputCategory")) renderDropdownKategori();
         if(document.getElementById("listKategoriPengaturan")) renderPengaturanKategori();
     });
 
-    // 4.5 Log Aktivitas
     onSnapshot(query(collection(db, "logs"), orderBy("timestamp", "desc"), limit(50)), (snapshot) => {
         dataLog = []; snapshot.forEach(doc => dataLog.push(doc.data()));
         if (document.getElementById("logTableBody")) renderTabelLog();
         if (document.getElementById("userHistoryList")) renderHistoryProfil();
     });
 
-    // 4.6 Notifikasi
     onSnapshot(collection(db, "notifikasi"), (snapshot) => {
         dataNotifikasi = [];
         snapshot.forEach(doc => {
@@ -140,15 +110,12 @@ window.inisialisasiDataRealtime = function() {
         dataNotifikasi.sort((a,b) => b.timestamp - a.timestamp);
         const unreadCount = dataNotifikasi.filter(n => !n.isRead).length;
         const badge = document.getElementById("notifBadge");
-        if(badge) badge.style.display = unreadCount > 0 ? "flex" : "none";
-        if(badge && unreadCount > 0) badge.innerText = unreadCount;
+        if(badge) badge.style.display = unreadCount > 0 ? "block" : "none";
         if(document.getElementById("userNotifList")) renderNotifikasi();
     });
 }
 
-// ==========================================
-// 5. FUNGSI UTILITAS, NOTIF & MENTION
-// ==========================================
+// --- FUNGSI UTILITAS & MENTION ---
 async function catatLog(aksi, namaTugas) { await addDoc(collection(db, "logs"), { waktu: new Date().toLocaleString('id-ID'), pengguna: currentUserEmail, aksi: aksi, tugas: namaTugas, timestamp: Date.now() }); }
 function dapatkanNamaTampil(email) { return semuaProfilMap[email] ? semuaProfilMap[email].nama : email.split('@')[0]; }
 async function kirimNotifikasi(toName, toEmail, pesan) {
@@ -156,7 +123,7 @@ async function kirimNotifikasi(toName, toEmail, pesan) {
     await addDoc(collection(db, "notifikasi"), { toName: toName, toEmail: toEmail, pesan: pesan, isRead: false, timestamp: Date.now() });
 }
 window.pindaiDanKirimNotifMention = function(teks, judulTugas) {
-    let members = window.dapatkanDaftarMember(); 
+    let members = window.dapatkanDaftarMember(); // Memanggil buku telepon terpusat
     members.forEach(member => { if (teks.includes('@' + member)) kirimNotifikasi(member, null, `<strong>${dataProfilUser.nama}</strong> menyebut Anda di tugas: <em>${judulTugas}</em>`); });
 }
 window.renderNotifikasi = function() {
@@ -170,10 +137,19 @@ window.tandaiSemuaDibaca = async function() {
     for (let n of unread) await updateDoc(doc(db, "notifikasi", n.id), { isRead: true });
 }
 
+// Fungsi Terpusat: Menggabungkan nama dari Database & Dummy
 window.dapatkanDaftarMember = function() {
     let members = new Set(["Budi Santoso", "Siti Aminah", "Andi Susanto", "Rina Marlina", "Dewi Lestari"]);
+    
+    // Masukkan diri sendiri
     if (dataProfilUser && dataProfilUser.nama) members.add(dataProfilUser.nama);
-    for (let email in semuaProfilMap) { if (semuaProfilMap[email] && semuaProfilMap[email].nama) members.add(semuaProfilMap[email].nama); }
+    
+    // Masukkan semua orang dari database profil
+    for (let email in semuaProfilMap) {
+        if (semuaProfilMap[email] && semuaProfilMap[email].nama) {
+            members.add(semuaProfilMap[email].nama);
+        }
+    }
     return Array.from(members);
 }
 
@@ -186,25 +162,33 @@ window.deteksiMention = function(e) {
 
     if (lastWord.startsWith('@')) {
         const keyword = lastWord.substring(1).toLowerCase();
-        const members = window.dapatkanDaftarMember(); 
+        const members = window.dapatkanDaftarMember(); // Panggil Buku Telepon Global
         const cocok = members.filter(m => m.toLowerCase().includes(keyword));
         
         if (cocok.length > 0) {
             aktifMentionTarget = target; 
             kotakSaran.innerHTML = '';
-            cocok.forEach(m => { kotakSaran.innerHTML += `<div class="suggestion-item" onmousedown="event.preventDefault(); pilihMention('${m}', '${lastWord}')">${m}</div>`; });
+            cocok.forEach(m => { 
+                kotakSaran.innerHTML += `<div class="suggestion-item" onmousedown="event.preventDefault(); pilihMention('${m}', '${lastWord}')">${m}</div>`; 
+            });
             
-            kotakSaran.style.position = 'fixed'; kotakSaran.style.zIndex = '1000000';
+            // Mengembalikan z-index dan posisi fixed agar kotak melayang di atas modal
+            kotakSaran.style.position = 'fixed';
+            kotakSaran.style.zIndex = '1000000';
+            
             const rect = target.getBoundingClientRect();
             if (target.tagName === 'DIV') {
                 const sel = window.getSelection();
                 if (sel.rangeCount > 0) {
-                    const range = sel.getRangeAt(0).cloneRange(); range.collapse(false);
+                    const range = sel.getRangeAt(0).cloneRange(); 
+                    range.collapse(false);
                     const cursorRect = range.getBoundingClientRect();
-                    kotakSaran.style.top = (cursorRect.bottom + 5) + 'px'; kotakSaran.style.left = cursorRect.left + 'px';
+                    kotakSaran.style.top = (cursorRect.bottom + 5) + 'px'; 
+                    kotakSaran.style.left = cursorRect.left + 'px';
                 }
             } else { 
-                kotakSaran.style.top = (rect.bottom + 5) + 'px'; kotakSaran.style.left = rect.left + 'px'; 
+                kotakSaran.style.top = (rect.bottom + 5) + 'px'; 
+                kotakSaran.style.left = rect.left + 'px'; 
             }
             kotakSaran.style.display = 'block';
         } else { kotakSaran.style.display = 'none'; }
@@ -223,9 +207,8 @@ window.pilihMention = function(namaMember, keywordLama) {
     document.getElementById('mentionBox').style.display = 'none'; aktifMentionTarget.focus();
 }
 
-// ==========================================
-// 6. PAPAN KANBAN (BOARD) & RBAC
-// ==========================================
+// --- LOGIKA BOARD DENGAN RBAC ---
+// Fungsi baru pencipta warna otomatis
 function getCategoryColor(name) {
     if (!name) return '#CCFA59';
     let hash = 0;
@@ -249,7 +232,9 @@ window.renderPapanKanban = function() {
 
     const searchInput = document.getElementById("searchInput");
     const kataKunci = searchInput ? searchInput.value.toLowerCase().trim() : "";
-    const metodeSort = document.getElementById("sortSelect") ? document.getElementById("sortSelect").value : "default";
+    
+    // Default sekarang diarahkan ke "newest" jika dropdown tidak ditemukan
+    const metodeSort = document.getElementById("sortSelect") ? document.getElementById("sortSelect").value : "newest";
     
     let dataDitampilkan = dataTugas.filter(t => {
         if (kataKunci === "") return true;
@@ -258,8 +243,28 @@ window.renderPapanKanban = function() {
         return judul.includes(kataKunci) || kategori.includes(kataKunci) || pic.includes(kataKunci);
     });
 
-    if (metodeSort === "dueDate") dataDitampilkan.sort((a, b) => new Date(a.tenggat || '2099-01-01') - new Date(b.tenggat || '2099-01-01'));
-    else if (metodeSort === "category") dataDitampilkan.sort((a, b) => (a.kategori || '').localeCompare(b.kategori || ''));
+    // --- MESIN PENGURUTAN (SORTING) 4-ARAH ---
+    if (metodeSort === "dueDateAsc") {
+        // Tenggat Ascending: Dari yang paling cepat (dekat) sampai yang terjauh. Yang tanpa tenggat ditaruh paling bawah (2099)
+        dataDitampilkan.sort((a, b) => new Date(a.tenggat || '2099-01-01') - new Date(b.tenggat || '2099-01-01'));
+    } else if (metodeSort === "dueDateDesc") {
+        // Tenggat Descending: Dari yang paling jauh sampai yang paling cepat. Yang tanpa tenggat ditaruh paling bawah (1970)
+        dataDitampilkan.sort((a, b) => new Date(b.tenggat || '1970-01-01') - new Date(a.tenggat || '1970-01-01'));
+    } else if (metodeSort === "category") {
+        // Kategori: Sesuai abjad A-Z
+        dataDitampilkan.sort((a, b) => (a.kategori || '').localeCompare(b.kategori || ''));
+    } else {
+        // Default / newest: Baca timestamp dari ID tugas ("task_1623456789") dan urutkan dari terbesar ke terkecil
+        dataDitampilkan.sort((a, b) => {
+            let timeA = parseInt(a.id.split('_')[1]) || 0;
+            let timeB = parseInt(b.id.split('_')[1]) || 0;
+            return timeB - timeA; // B kurang A menghasilkan susunan descending (Terbaru di atas)
+        });
+    }
+
+    // --- LOGIKA WAKTU HARI INI ---
+    const hariIni = new Date();
+    hariIni.setHours(0, 0, 0, 0);
 
     dataDitampilkan.forEach(t => {
         const list = document.getElementById("list-" + t.status);
@@ -268,18 +273,32 @@ window.renderPapanKanban = function() {
             const catColor = getCategoryColor(t.kategori); 
             const dragAttr = (role !== 'viewer') ? `draggable="true" ondragstart="drag(event)"` : '';
             
+            // --- DETEKSI TUGAS TERLAMBAT (OVERDUE) ---
+            let isOverdue = false;
+            if (t.tenggat && (t.status === 'todo' || t.status === 'doing')) {
+                const batasWaktu = new Date(t.tenggat);
+                if (batasWaktu < hariIni) {
+                    isOverdue = true;
+                }
+            }
+
+            const borderStyle = isOverdue ? "border: 1px solid #E23B3B; box-shadow: 0 4px 12px rgba(226,59,59,0.15);" : "";
+            const overdueBadge = isOverdue ? `<span style="color: #E23B3B; font-weight: 700; font-size: 10px; background: rgba(226,59,59,0.1); padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Terlambat</span>` : '';
+            const dateColor = isOverdue ? "color: #E23B3B; font-weight: 700;" : "color: inherit;";
+
             list.innerHTML += `
-                <div class="card" ${dragAttr} onclick="bukaModalEdit('${t.id}')" id="${t.id}">
+                <div class="card" ${dragAttr} onclick="bukaModalEdit('${t.id}')" id="${t.id}" style="${borderStyle}">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <span class="card-category" style="background-color: ${catColor}; color: #282828;">${t.kategori || "Lainnya"}</span>
                         <button class="card-archive-btn" onclick="event.stopPropagation(); arsipTugasSatuan('${t.id}')" title="Arsipkan">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y2="12" x2="14" y2="12"></line>
+                                <polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>
                             </svg>
                         </button>
                     </div>
                     <h4>${t.judul}</h4>
-                    <p>${pic} • ${t.tenggat || "-"}</p>
+                    
+                    <p>${pic} • <span style="${dateColor}">${t.tenggat || "-"}</span> ${overdueBadge}</p>
                     
                     <div style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed rgba(40,40,40,0.1); font-size: 10px; color: rgba(40,40,40,0.5); display: flex; justify-content: space-between;">
                         <span>Oleh: <strong>${t.createdBy || 'Sistem'}</strong></span>
@@ -293,7 +312,7 @@ window.renderPapanKanban = function() {
 window.allowDrop = function(ev) { if (dataProfilUser.role !== 'viewer') ev.preventDefault(); }
 window.drag = function(ev) { if (dataProfilUser.role !== 'viewer') ev.dataTransfer.setData("text", ev.target.id); }
 window.drop = async function(ev, targetStatus) {
-    if (dataProfilUser.role === 'viewer') return; 
+    if (dataProfilUser.role === 'viewer') return; // RBAC Guard
     ev.preventDefault();
     var idKartu = ev.dataTransfer.getData("text");
     let tugasPilihan = dataTugas.find(t => t.id === idKartu);
@@ -304,12 +323,11 @@ window.drop = async function(ev, targetStatus) {
     }
 }
 
-// ==========================================
-// 7. MODAL EDIT/TAMBAH TUGAS
-// ==========================================
+// --- MODAL TUGAS RBAC ---
 window.formatText = function(command) { document.execCommand(command, false, null); document.getElementById("inputDesc").focus(); }
 window.tambahLink = function() { const url = prompt("Masukkan URL:"); if (url) document.execCommand("createLink", false, url); }
 
+// Mengunci UI form (Digunakan untuk role Viewer)
 function aturKunciForm(kunci) {
     document.getElementById("inputTitle").disabled = kunci;
     document.getElementById("inputCategory").disabled = kunci;
@@ -317,8 +335,12 @@ function aturKunciForm(kunci) {
     document.getElementById("inputPerson").disabled = kunci;
     document.getElementById("inputDoneCheck").disabled = kunci;
     document.getElementById("inputDesc").contentEditable = !kunci;
-    const toolbars = document.querySelectorAll('.rich-text-toolbar'); toolbars.forEach(el => el.style.display = kunci ? 'none' : 'flex');
-    const formActions = document.querySelector('.form-actions'); if(formActions) formActions.style.display = kunci ? 'none' : 'flex';
+    
+    // Sembunyikan Toolbar dan Tombol Simpan
+    const toolbars = document.querySelectorAll('.rich-text-toolbar');
+    toolbars.forEach(el => el.style.display = kunci ? 'none' : 'flex');
+    const formActions = document.querySelector('.form-actions');
+    if(formActions) formActions.style.display = kunci ? 'none' : 'flex';
 }
 
 window.bukaModalTambah = function(statusKolom) {
@@ -356,11 +378,17 @@ window.bukaModalEdit = function(id) {
         
         document.getElementById("commentSection").style.display = "block";
         renderKomentar(tugas.komentar || []);
+        
+        // RBAC Check
         aturKunciForm(role === 'viewer');
+        
+        // Hanya Admin yang boleh melihat tombol Hapus
         document.getElementById("btnDelete").style.display = (role === 'admin') ? "inline-block" : "none";
         
+        // Sembunyikan input komentar baru jika Viewer
         const addCommentBox = document.querySelector('.add-comment-box');
         if(addCommentBox) addCommentBox.style.display = (role === 'viewer') ? 'none' : 'flex';
+
         modal.style.display = "flex";
     }
 }
@@ -368,20 +396,25 @@ window.tutupModal = function() { const modal = document.getElementById("cardModa
 
 window.simpanTugas = async function(event) {
     event.preventDefault(); 
-    if (dataProfilUser.role === 'viewer') return;
+    if (dataProfilUser.role === 'viewer') return; // RBAC Guard
 
-    const judul = document.getElementById("inputTitle").value; const kategori = document.getElementById("inputCategory").value;
-    const tenggat = document.getElementById("inputDue").value; const deskripsiRichText = document.getElementById("inputDesc").innerHTML; 
+    const judul = document.getElementById("inputTitle").value;
+    const kategori = document.getElementById("inputCategory").value;
+    const tenggat = document.getElementById("inputDue").value;
+    const deskripsiRichText = document.getElementById("inputDesc").innerHTML; 
     const isDone = document.getElementById("inputDoneCheck").checked;
+
     const sisaKetikanPic = document.getElementById("inputPerson").value.trim();
     if (sisaKetikanPic !== "" && !currentSelectedPics.includes(sisaKetikanPic)) currentSelectedPics.push(sisaKetikanPic);
 
     if (modeEditId) {
-        let isDiPapan = dataTugas.some(t => t.id === modeEditId); let targetKoleksi = isDiPapan ? "tugas" : "arsip_tugas";
+        let isDiPapan = dataTugas.some(t => t.id === modeEditId);
+        let targetKoleksi = isDiPapan ? "tugas" : "arsip_tugas";
         let tugasAktif = dataTugas.find(t => t.id === modeEditId) || dataArsip.find(t => t.id === modeEditId);
         if(tugasAktif) {
             let newStatus = tugasAktif.status;
             if(isDone && (tugasAktif.status === 'todo' || tugasAktif.status === 'doing')) newStatus = 'review';
+            
             let picLama = Array.isArray(tugasAktif.pic) ? tugasAktif.pic : (typeof tugasAktif.pic === 'string' ? tugasAktif.pic.split(',').map(s=>s.trim()) : []);
             let picBaru = currentSelectedPics.filter(p => !picLama.includes(p));
             picBaru.forEach(namaPekerja => { kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menambahkan Anda sebagai PIC di tugas: <em>${judul}</em>`); });
@@ -391,30 +424,9 @@ window.simpanTugas = async function(event) {
         }
     } else {
         const newId = "task_" + Date.now();
-        // Ambil nama pembuat dari data profil yang sedang login
-        const namaPembuat = dataProfilUser.nama || currentUserEmail.split('@')[0];
-        const waktuBuat = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-
-        currentSelectedPics.forEach(namaPekerja => { 
-            kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menugaskan Anda pada kartu baru: <em>${judul}</em>`); 
-        });
-        
+        currentSelectedPics.forEach(namaPekerja => { kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menugaskan Anda pada kartu baru: <em>${judul}</em>`); });
         pindaiDanKirimNotifMention(deskripsiRichText, judul);
-
-        // Tambahkan createdBy dan createdAt ke dalam database
-        await setDoc(doc(db, "tugas", newId), { 
-            id: newId, 
-            status: isDone ? 'review' : kolomTarget, 
-            judul: judul, 
-            kategori: kategori, 
-            tenggat: tenggat, 
-            pic: [...currentSelectedPics], 
-            deskripsi: deskripsiRichText, 
-            isDone: isDone, 
-            komentar: [],
-            createdBy: namaPembuat,
-            createdAt: waktuBuat
-        });
+        await setDoc(doc(db, "tugas", newId), { id: newId, status: isDone ? 'review' : kolomTarget, judul: judul, kategori: kategori, tenggat: tenggat, pic: [...currentSelectedPics], deskripsi: deskripsiRichText, isDone: isDone, komentar: [] });
         catatLog("Membuat kartu baru", judul);
     }
     window.tutupModal();
@@ -423,7 +435,8 @@ window.simpanTugas = async function(event) {
 window.hapusTugas = async function() {
     if (dataProfilUser.role !== 'admin') { alert("Hanya Admin yang bisa menghapus tugas."); return; }
     if(confirm("Yakin ingin menghapus tugas ini secara permanen?")) {
-        let isDiPapan = dataTugas.some(t => t.id === modeEditId); let targetKoleksi = isDiPapan ? "tugas" : "arsip_tugas";
+        let isDiPapan = dataTugas.some(t => t.id === modeEditId);
+        let targetKoleksi = isDiPapan ? "tugas" : "arsip_tugas";
         let tugasAktif = dataTugas.find(t => t.id === modeEditId) || dataArsip.find(t => t.id === modeEditId);
         if(tugasAktif) {
             await deleteDoc(doc(db, targetKoleksi, modeEditId));
@@ -433,17 +446,20 @@ window.hapusTugas = async function() {
     }
 }
 
-// ==========================================
-// 8. KOMENTAR
-// ==========================================
+// --- KOMENTAR ---
 window.renderKomentar = function(komentarArray) {
     const list = document.getElementById("commentsList"); if (!list) return; list.innerHTML = "";
     if(!komentarArray || komentarArray.length === 0) { list.innerHTML = "<p style='font-size:12px; color:gray;'>Belum ada komentar.</p>"; return; }
+    
     let role = dataProfilUser.role || 'admin';
+
     komentarArray.forEach((komentar, index) => {
         let namaTampil = dapatkanNamaTampil(komentar.user);
         let replyBadgeHTML = komentar.replyToUser ? `<div class="reply-badge">↳ Membalas pesan dari <strong>${dapatkanNamaTampil(komentar.replyToUser)}</strong></div>` : "";
+        
+        // RBAC: Sembunyikan tombol balas jika Viewer
         let btnBalas = (role === 'viewer') ? '' : `<div class="comment-actions"><button type="button" class="btn-reply-toggle" onclick="tampilkanFormBalasan(${index})">Balas</button></div>`;
+
         list.innerHTML += `<div class="comment-item">${replyBadgeHTML}<div class="comment-meta"><strong>${namaTampil}</strong> • ${komentar.waktu}</div><div class="comment-text">${komentar.teks}</div>${btnBalas}<div id="replyForm_${index}" class="reply-form" style="display:none;"><input type="text" id="inputReply_${index}" placeholder="Balas ke ${namaTampil}..." onkeyup="deteksiMention(event)"><button type="button" onclick="simpanBalasan('${komentar.user}', ${index})">Kirim</button></div></div>`;
     });
 }
@@ -481,9 +497,7 @@ window.simpanBalasan = async function(targetEmail, index) {
     }
 }
 
-// ==========================================
-// 9. ARSIP TUGAS
-// ==========================================
+// --- ARSIP ---
 window.arsipTugasSatuan = async function(id) {
     if (dataProfilUser.role === 'viewer') return;
     let tugas = dataTugas.find(t => t.id === id);
@@ -494,9 +508,12 @@ window.renderDaftarArsip = function() {
     const list = document.getElementById("archiveList"); if (!list) return;
     if (dataArsip.length === 0) { list.innerHTML = "<p style='color:gray; font-size:13px; text-align:center; padding: 32px 0;'>Pusat arsip kosong.</p>"; return; }
     list.innerHTML = "";
+    
     let role = dataProfilUser.role || 'admin';
+
     dataArsip.forEach(tugas => {
         let picDisplay = Array.isArray(tugas.pic) ? tugas.pic.join(', ') : (tugas.pic || "Tanpa PIC");
+        
         let btnPulihkan = (role !== 'viewer') ? `<button onclick="pulihkanTugas('${tugas.id}')" style="background: #282828; color: #CCFA59; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">Pulihkan</button>` : '';
         let btnHapus = (role === 'admin') ? `<button onclick="hapusPermanenTugas('${tugas.id}')" style="background: #FFFFFF; color: #E23B3B; border: 1px solid rgba(226,59,59,0.3); padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">Hapus Permanen</button>` : '';
 
@@ -525,10 +542,9 @@ window.hapusPermanenTugas = async function(id) {
     }
 }
 
-// ==========================================
-// 10. HALAMAN PROFIL & MANAJEMEN TIM
-// ==========================================
+// --- PROFIL & KATEGORI GLOBAL ---
 window.renderHalamanProfil = function() {
+    // 1. Isi data dasar profil
     document.getElementById("inputEmailProfil").value = currentUserEmail;
     document.getElementById("inputNamaProfil").value = dataProfilUser.nama;
     document.getElementById("avatarPreview").src = dataProfilUser.avatar;
@@ -536,10 +552,16 @@ window.renderHalamanProfil = function() {
     const roleInput = document.getElementById("inputRoleProfil");
     if(roleInput) roleInput.value = dataProfilUser.role || 'viewer';
 
+    // 2. PROTEKSI ROLE: Hanya Admin yang bisa melihat dropdown pengubah role miliknya sendiri
     const isMimin = (dataProfilUser.role === 'admin');
+    
+    // Cari container (pembungkus) dari dropdown role
     const roleDropdownContainer = document.getElementById("inputRoleProfil")?.parentElement;
-    if (roleDropdownContainer) roleDropdownContainer.style.display = isMimin ? 'block' : 'none';
+    if (roleDropdownContainer) {
+        roleDropdownContainer.style.display = isMimin ? 'block' : 'none';
+    }
 
+    // 3. PROTEKSI PANEL: Sembunyikan panel Kategori & Panel Tim jika bukan Admin
     const katPanel = document.getElementById("kategoriPanel");
     if(katPanel) katPanel.style.display = isMimin ? 'block' : 'none';
     
@@ -550,61 +572,69 @@ window.renderHalamanProfil = function() {
     }
 
     renderHistoryProfil();
+    
+    // 4. FITUR BARU: Memanggil daftar tugas milik user saat ini
     renderTugasSaya(); 
 }
-
 window.simpanProfil = async function(event) {
     event.preventDefault();
     const namaBaru = document.getElementById("inputNamaProfil").value;
     const avatarBaru = document.getElementById("avatarPreview").src;
-    const roleUjiCoba = document.getElementById("inputRoleProfil") ? document.getElementById("inputRoleProfil").value : dataProfilUser.role; 
+    const roleUjiCoba = document.getElementById("inputRoleProfil").value; // Mengambil data role
     
     await setDoc(doc(db, "profiles", currentUserEmail), { nama: namaBaru, avatar: avatarBaru, role: roleUjiCoba }, { merge: true });
-    alert("Profil berhasil diperbarui di Cloud!");
+    alert("Profil (dan Role) berhasil diperbarui di Cloud!");
 }
-
+// ==========================================
+// MANAJEMEN TIM (KHUSUS ADMIN)
+// ==========================================
 window.renderManajemenTim = function() {
-    const container = document.getElementById("teamList"); if (!container) return;
+    const container = document.getElementById("listTeamPengaturan");
+    if (!container) return;
     container.innerHTML = "";
-    
-    const emails = Object.keys(semuaProfilMap);
-    if (emails.length === 0) { container.innerHTML = "<p style='color:gray; font-size:13px;'>Belum ada anggota tim lain.</p>"; return; }
 
-    emails.forEach(email => {
-        const profil = semuaProfilMap[email];
-        const namaTampil = profil.nama || email.split('@')[0];
-        const roleUser = profil.role || 'viewer';
-        const avatarUser = profil.avatar || `https://ui-avatars.com/api/?name=${namaTampil}`;
+    // Membongkar data semua pengguna dari Firebase
+    for (let email in semuaProfilMap) {
+        let user = semuaProfilMap[email];
+        let userRole = user.role || 'viewer'; // Jika belum punya role, anggap viewer
         
-        let controlHTML = "";
-        if (email === currentUserEmail) {
-            controlHTML = `<span style="font-size:12px; font-weight:bold; color: #CCFA59; background-color: #282828; padding: 4px 8px; border-radius: 4px;">Anda (Admin)</span>`;
-        } else {
-            controlHTML = `
-                <select class="sprout-select" style="padding: 4px 8px; font-size: 12px; height: auto;" onchange="ubahRoleMember('${email}', this.value)">
-                    <option value="admin" ${roleUser === 'admin' ? 'selected' : ''}>Admin</option>
-                    <option value="editor" ${roleUser === 'editor' ? 'selected' : ''}>Editor</option>
-                    <option value="viewer" ${roleUser === 'viewer' ? 'selected' : ''}>Viewer</option>
-                </select>`;
-        }
+        // Mencegah admin membuang status adminnya sendiri dari panel ini 
+        // (Biar tidak tidak sengaja terkunci dari sistem)
+        let lockDiriSendiri = (email === currentUserEmail) ? 'disabled title="Gunakan form profil di atas untuk role Anda sendiri"' : '';
 
         container.innerHTML += `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(40,40,40,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #FAFAFA; padding: 12px; border: 1px solid rgba(40,40,40,0.1); border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <img src="${avatarUser}" alt="${namaTampil}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
-                    <div><div style="font-size: 14px; font-weight: bold; color: #282828;">${namaTampil}</div><div style="font-size: 12px; color: gray;">${email}</div></div>
+                    <img src="${user.avatar || 'https://ui-avatars.com/api/?name='+user.nama+'&background=CCFA59&color=282828'}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                    <div>
+                        <div style="font-size: 13px; font-weight: 700; color: #282828;">${user.nama}</div>
+                        <div style="font-size: 11px; color: rgba(40,40,40,0.6);">${email}</div>
+                    </div>
                 </div>
-                <div>${controlHTML}</div>
-            </div>`;
-    });
+                <select class="sprout-select" style="padding: 4px 8px; font-size: 12px; min-width: 100px;" onchange="ubahRolePengguna('${email}', this.value)" ${lockDiriSendiri}>
+                    <option value="admin" ${userRole === 'admin' ? 'selected' : ''}>Admin</option>
+                    <option value="editor" ${userRole === 'editor' ? 'selected' : ''}>Editor</option>
+                    <option value="viewer" ${userRole === 'viewer' ? 'selected' : ''}>Viewer</option>
+                </select>
+            </div>
+        `;
+    }
 }
 
-window.ubahRoleMember = async function(emailTarget, roleBaru) {
-    if (dataProfilUser.role !== 'admin') { alert("Akses ditolak: Hanya Admin yang dapat mengubah peran."); return; }
-    try {
-        await updateDoc(doc(db, "profiles", emailTarget), { role: roleBaru });
-        catatLog("Mengubah peran pengguna", emailTarget + " menjadi " + roleBaru);
-    } catch (error) { console.error("Gagal mengubah role:", error); alert("Terjadi kesalahan."); }
+window.ubahRolePengguna = async function(emailTarget, roleBaru) {
+    if (dataProfilUser.role !== 'admin') {
+        alert("Akses Ditolak: Hanya Admin yang bisa mengubah hak akses.");
+        return;
+    }
+    
+    if (confirm(`Angkat pengguna ${emailTarget} menjadi ${roleBaru.toUpperCase()}?`)) {
+        // Mengirim update langsung ke dokumen profil target
+        await setDoc(doc(db, "profiles", emailTarget), { role: roleBaru }, { merge: true });
+        catatLog("Mengubah hak akses (role)", emailTarget + " menjadi " + roleBaru);
+        // Karena kita pakai Real-time Listener, UI akan otomatis berkedip menyesuaikan!
+    } else {
+        renderManajemenTim(); // Kembalikan ke posisi semula jika batal
+    }
 }
 
 window.renderHistoryProfil = function() {
@@ -617,10 +647,6 @@ window.gantiAvatar = function(event) {
     const file = event.target.files[0];
     if (file) { const reader = new FileReader(); reader.onload = function(e) { document.getElementById('avatarPreview').src = e.target.result; }; reader.readAsDataURL(file); }
 }
-
-// ==========================================
-// 11. PENGATURAN KATEGORI & PIC TAGS
-// ==========================================
 window.renderPengaturanKategori = function() {
     const container = document.getElementById("listKategoriPengaturan"); if(!container) return; container.innerHTML = "";
     daftarKategoriGlobal.forEach((kat, index) => {
@@ -644,6 +670,7 @@ window.renderDropdownKategori = function() {
     if(daftarKategoriGlobal.includes(currentValue)) select.value = currentValue;
 }
 
+// --- PIC TAGS AUTOCOMPLETE ---
 window.renderPicTags = function() {
     const container = document.getElementById('selectedPics'); if(!container) return; container.innerHTML = '';
     currentSelectedPics.forEach((pic, index) => {
@@ -651,54 +678,88 @@ window.renderPicTags = function() {
         container.innerHTML += `<span class="pic-tag" style="display: inline-flex; align-items: center; background-color: #CCFA59; color: #282828; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; gap: 6px;">${pic} ${hapusBtn}</span>`;
     });
 }
-window.hapusPic = function(index) { if (dataProfilUser.role === 'viewer') return; currentSelectedPics.splice(index, 1); renderPicTags(); }
+
+window.hapusPic = function(index) { 
+    if (dataProfilUser.role === 'viewer') return; 
+    currentSelectedPics.splice(index, 1); 
+    renderPicTags(); 
+}
+
 window.tambahPic = function(nama) {
     if (dataProfilUser.role === 'viewer') return;
     if(!currentSelectedPics.includes(nama)) currentSelectedPics.push(nama);
-    document.getElementById('inputPerson').value = ''; document.getElementById('picSuggestions').style.display = 'none'; renderPicTags();
+    document.getElementById('inputPerson').value = ''; 
+    document.getElementById('picSuggestions').style.display = 'none'; 
+    renderPicTags();
 }
 
 function setupAutocompletePIC() {
-    const input = document.getElementById('inputPerson'); if(!input) return;
+    const input = document.getElementById('inputPerson'); 
+    if(!input) return;
+
     input.addEventListener('input', function(e) {
         if (dataProfilUser.role === 'viewer') return;
-        const val = e.target.value.toLowerCase(); const box = document.getElementById('picSuggestions'); box.innerHTML = '';
+        const val = e.target.value.toLowerCase(); 
+        const box = document.getElementById('picSuggestions'); 
+        box.innerHTML = '';
+        
         if(!val) { box.style.display = 'none'; return; }
-        const members = window.dapatkanDaftarMember(); 
+        
+        const members = window.dapatkanDaftarMember(); // Gunakan Buku Telepon yang sama
         const cocok = members.filter(m => m.toLowerCase().includes(val) && !currentSelectedPics.includes(m));
+        
         if(cocok.length > 0) { 
-            box.style.display = 'block'; cocok.forEach(m => { box.innerHTML += `<div class="suggestion-item" onclick="tambahPic('${m}')">${m}</div>`; }); 
+            box.style.display = 'block'; 
+            cocok.forEach(m => { box.innerHTML += `<div class="suggestion-item" onclick="tambahPic('${m}')">${m}</div>`; }); 
         } else { 
-            box.style.display = 'block'; box.innerHTML = `<div class="suggestion-item" onclick="tambahPic('${e.target.value}')"><em>+ Tambah "${e.target.value}"</em></div>`; 
+            box.style.display = 'block'; 
+            box.innerHTML = `<div class="suggestion-item" onclick="tambahPic('${e.target.value}')"><em>+ Tambah "${e.target.value}"</em></div>`; 
         }
     });
+
     input.addEventListener('keydown', function(e) {
-        if(e.key === 'Backspace' && e.target.value === '' && currentSelectedPics.length > 0) { if (dataProfilUser.role === 'viewer') return; currentSelectedPics.pop(); renderPicTags(); }
+        if(e.key === 'Backspace' && e.target.value === '' && currentSelectedPics.length > 0) {
+            if (dataProfilUser.role === 'viewer') return;
+            currentSelectedPics.pop(); 
+            renderPicTags();
+        }
     });
+
     document.addEventListener('click', function(e) {
-        if(!e.target.closest('.multi-select-container')) { const box = document.getElementById('picSuggestions'); if(box) box.style.display = 'none'; }
+        if(!e.target.closest('.multi-select-container')) {
+            const box = document.getElementById('picSuggestions');
+            if(box) box.style.display = 'none';
+        }
     });
 }
+
+// WAJIB: Panggil fungsinya agar input PIC aktif merespon ketikan!
 setupAutocompletePIC();
 
-// ==========================================
-// 12. LOG HISTORI & LAPORAN
-// ==========================================
+// --- GENERAL LOG & REPORT (TIDAK BERUBAH) ---
 window.renderTabelLog = function() {
     const tbody = document.getElementById("logTableBody"); if (!tbody) return; tbody.innerHTML = "";
     dataLog.forEach(log => { tbody.innerHTML += `<tr><td>${log.waktu}</td><td>${dapatkanNamaTampil(log.pengguna)}</td><td>${log.aksi}</td><td><strong>${log.tugas}</strong></td></tr>`; });
 }
-
+// ==========================================
+// 13. RENDER LAPORAN KINERJA (GABUNGAN)
+// ==========================================
 window.renderLaporan = function() {
-    const chartContainer = document.getElementById("categoryChart"); if (!chartContainer) return; 
-    const filterWaktu = document.getElementById("filterWaktu"); const nilaiFilter = filterWaktu ? filterWaktu.value : 'all';
+    const chartContainer = document.getElementById("categoryChart");
+    if (!chartContainer) return; 
+
+    const filterWaktu = document.getElementById("filterWaktu");
+    const nilaiFilter = filterWaktu ? filterWaktu.value : 'all';
     const waktuSekarang = new Date();
     
-    let selesai = 0, pending = 0, backlog = 0; let statsKategori = {};
+    let selesai = 0, pending = 0, backlog = 0; 
+    let statsKategori = {};
+
     const gabunganData = [...dataTugas, ...dataArsip];
 
     gabunganData.forEach(tugas => {
         let waktuDibuat = waktuSekarang;
+        // Mengambil timestamp dari ID tugas (misal: task_1623456789)
         if (tugas.id && tugas.id.includes('_')) {
             const extractedTime = parseInt(tugas.id.split('_')[1]);
             if (!isNaN(extractedTime)) waktuDibuat = new Date(extractedTime);
@@ -711,10 +772,12 @@ window.renderLaporan = function() {
         else if (nilaiFilter === 'year') masukHitungan = (waktuDibuat.getFullYear() === waktuSekarang.getFullYear());
 
         if (masukHitungan) {
+            // Logika Status
             if (tugas.status === 'done' || tugas.status === 'review' || tugas.status === 'archived') selesai++;
             else if (tugas.status === 'doing') pending++;
             else if (tugas.status === 'todo') backlog++;
 
+            // Logika Kategori
             let kat = tugas.kategori || "Lainnya";
             if (!statsKategori[kat]) statsKategori[kat] = { total: 0, selesai: 0 };
             statsKategori[kat].total++;
@@ -727,7 +790,9 @@ window.renderLaporan = function() {
     if(document.getElementById("countBacklog")) document.getElementById("countBacklog").innerText = backlog;
 
     let htmlGrafik = "";
-    let arrKategori = Object.keys(statsKategori).map(key => { return { nama: key, persen: Math.round((statsKategori[key].selesai / statsKategori[key].total) * 100) }; }).sort((a, b) => b.persen - a.persen);
+    let arrKategori = Object.keys(statsKategori).map(key => {
+        return { nama: key, persen: Math.round((statsKategori[key].selesai / statsKategori[key].total) * 100) };
+    }).sort((a, b) => b.persen - a.persen);
 
     arrKategori.forEach(kat => {
         let colorClass = kat.persen >= 80 ? 'acid' : (kat.persen >= 40 ? 'black' : 'grey');
@@ -745,91 +810,112 @@ window.downloadReportHTML = function() {
     const selesai = document.getElementById("countSelesai") ? document.getElementById("countSelesai").innerText : "0";
     const pending = document.getElementById("countPending") ? document.getElementById("countPending").innerText : "0";
     const backlog = document.getElementById("countBacklog") ? document.getElementById("countBacklog").innerText : "0";
+    
     const chartContainer = document.getElementById("categoryChart");
     const chartHTMLData = chartContainer ? chartContainer.innerHTML : "";
 
     const htmlContent = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Sprout Report - ${filterTeks}</title><style>body { font-family: 'Segoe UI', Arial, sans-serif; background: #f7f7f7; color: #282828; padding: 40px; }.container { max-width: 900px; margin: 0 auto; background: transparent; }h1 { margin-bottom: 5px; } p { color: #666; margin-bottom: 30px; }.stats { display: flex; gap: 20px; margin-bottom: 40px; }.stat-box { flex: 1; padding: 24px; background: #fff; border-radius: 12px; border: 1px solid rgba(40,40,40,0.07); }.stat-box h2 { font-size: 40px; margin: 0 0 10px 0; }.chart-wrapper { background: #f7f7f7; padding-right: 40px; }.progress-row { display: flex; align-items: center; margin-bottom: 20px; }.progress-label { width: 160px; font-weight: bold; font-size: 14px; text-align: right; padding-right: 24px; }.progress-track { flex: 1; background-color: #FFFFFF; border: 1px solid rgba(40,40,40,0.07); border-radius: 8px; height: 48px; position: relative; overflow: hidden; }.progress-fill { height: 100%; border-radius: 8px; display: flex; align-items: center; justify-content: flex-end; padding-right: 20px; }.progress-fill.acid { background-color: #CCFA59; color: #282828; }.progress-fill.black { background-color: #282828; color: #CCFA59; }.progress-fill.grey { background-color: rgba(40,40,40,0.2); color: #282828; }.progress-text { font-weight: bold; font-size: 15px; }</style></head><body><div class="container"><h1>Laporan Kinerja Sprout</h1><p>Periode: <strong>${filterTeks}</strong> | Dihasilkan pada: ${new Date().toLocaleString('id-ID')}</p><div class="stats"><div class="stat-box" style="background:#282828; color:#CCFA59; border:none;"><h2>${selesai}</h2><span style="color: rgba(255,255,255,0.7); font-size:13px; font-weight:bold;">Tugas Selesai</span></div><div class="stat-box"><h2>${pending}</h2><span style="font-size:13px; font-weight:bold;">Pending (Doing)</span></div><div class="stat-box" style="border: 1px solid rgba(226,59,59,0.3);"><h2>${backlog}</h2><span style="color:#E23B3B; font-size:13px; font-weight:bold;">Backlog (To-Do)</span></div></div><h3 style="margin-bottom: 20px; font-size: 16px;">Tingkat Penyelesaian per Kategori</h3><div class="chart-wrapper">${chartHTMLData}</div></div></body></html>`;
 
     const blob = new Blob([htmlContent], { type: 'text/html' });
-    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Sprout_Report_${filterTeks.replace(/\s+/g, '_')}.html`;
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Sprout_Report_${filterTeks.replace(/\s+/g, '_')}.html`;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
 
 // ==========================================
-// 13. TUGAS SAYA (PROFIL)
-// ==========================================
-window.renderTugasSaya = function() {
-    const container = document.getElementById("myTasksList"); if (!container) return;
-    const namaSaya = (dataProfilUser && dataProfilUser.nama) ? dataProfilUser.nama.toLowerCase().trim() : "";
-    const emailSaya = currentUserEmail ? currentUserEmail.toLowerCase().trim() : "";
-
-    if (namaSaya === "" && emailSaya === "") return;
-
-    const tugasSaya = dataTugas.filter(t => {
-        const daftarPic = Array.isArray(t.pic) ? t.pic : (t.pic ? t.pic.split(',').map(s => s.trim()) : []);
-        return daftarPic.some(p => {
-            const picDiKartu = p.toLowerCase().trim();
-            return picDiKartu === namaSaya || picDiKartu === emailSaya || namaSaya.includes(picDiKartu) || picDiKartu.includes(namaSaya);
-        });
-    });
-
-    if (tugasSaya.length === 0) {
-        container.innerHTML = "<p style='color:gray; font-size:13px; text-align:center; padding: 20px 0;'>Anda belum memiliki tugas yang ditugaskan.</p>"; return;
-    }
-
-    container.innerHTML = "";
-    tugasSaya.forEach(t => {
-        const catColor = typeof getCategoryColor === 'function' ? getCategoryColor(t.kategori) : '#CCFA59';
-        container.innerHTML += `
-            <div class="card" onclick="window.location.href='index.html?buka=${t.id}'" style="cursor: pointer; margin-bottom: 0; border: 1px solid rgba(40,40,40,0.1); transition: transform 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <span class="card-category" style="background-color: ${catColor}; color: #282828;">${t.kategori || "Lainnya"}</span>
-                    <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(40,40,40,0.4);">${t.status}</span>
-                </div>
-                <h4 style="font-size: 13px; margin: 8px 0;">${t.judul}</h4>
-                <p style="font-size: 11px; color: gray; margin: 0;">Tenggat: ${t.tenggat || "-"}</p>
-            </div>
-        `;
-    });
-}
-
-// ==========================================
-// 14. MINI GAME & MOBILE MENU
+// 14. MINI GAME (SPROUT RUNNER)
 // ==========================================
 const gameBoard = document.getElementById("gameBoard");
-if (gameBoard) { 
-    const char = document.getElementById("sproutChar"); const obs = document.getElementById("cactusObs");
-    const scoreText = document.getElementById("gameScore"); const gameOverMsg = document.getElementById("gameOverMsg");
-    let isJumping = false; let isGameOver = true; let score = 0; let checkCollision;
 
+if (gameBoard) { // Pastikan script hanya jalan jika ada di halaman Tentang
+    const char = document.getElementById("sproutChar");
+    const obs = document.getElementById("cactusObs");
+    const scoreText = document.getElementById("gameScore");
+    const gameOverMsg = document.getElementById("gameOverMsg");
+
+    let isJumping = false;
+    let isGameOver = true; 
+    let score = 0;
+    let checkCollision;
+
+    // Fungsi Melompat
     function lompat() {
-        if (isGameOver) { mulaiGame(); return; }
+        if (isGameOver) {
+            mulaiGame(); // Jika mati, klik untuk mulai lagi
+            return;
+        }
         if (!isJumping) {
-            isJumping = true; char.classList.add("lompat");
-            setTimeout(() => { char.classList.remove("lompat"); isJumping = false; }, 500);
+            isJumping = true;
+            char.classList.add("lompat");
+            setTimeout(() => {
+                char.classList.remove("lompat");
+                isJumping = false;
+            }, 500);
         }
     }
+
+    // Mesin Permainan
     function mulaiGame() {
-        isGameOver = false; score = 0; gameOverMsg.style.display = "none"; obs.style.animation = "none"; 
+        isGameOver = false;
+        score = 0;
+        gameOverMsg.style.display = "none";
+        obs.style.animation = "none"; 
+        
+        // Memulai animasi rintangan (sedikit delay agar tidak ngelag)
         setTimeout(() => { obs.classList.add("jalan"); }, 50);
+
         if (checkCollision) clearInterval(checkCollision);
+
         checkCollision = setInterval(() => {
+            // Ambil kordinat karakter dan rintangan saat ini
             let charTop = parseInt(window.getComputedStyle(char).getPropertyValue("top"));
             let obsLeft = parseInt(window.getComputedStyle(obs).getPropertyValue("left"));
+
+            // Logika Tabrakan (Karakter tidak lompat cukup tinggi saat kaktus lewat)
             if (obsLeft < 70 && obsLeft > 40 && charTop >= 90) {
-                obs.style.animation = "none"; obs.classList.remove("jalan"); gameOverMsg.style.display = "block";
-                isGameOver = true; clearInterval(checkCollision);
-            } else if (!isGameOver) { score++; scoreText.innerText = Math.floor(score / 10); }
+                obs.style.animation = "none"; // Hentikan kaktus
+                obs.classList.remove("jalan");
+                gameOverMsg.style.display = "block";
+                isGameOver = true;
+                clearInterval(checkCollision);
+            } else if (!isGameOver) {
+                score++;
+                scoreText.innerText = Math.floor(score / 10); // Skor bertambah seiring waktu
+            }
         }, 10);
     }
-    document.addEventListener("keydown", function(event) { if (event.code === "Space") { event.preventDefault(); lompat(); } });
-    gameBoard.addEventListener("mousedown", lompat); gameBoard.addEventListener("touchstart", function(e){ e.preventDefault(); lompat(); });
+
+    // Pemicu Lompat (Bisa pakai Spasi, Klik Mouse, atau Sentuh Layar HP)
+    document.addEventListener("keydown", function(event) {
+        if (event.code === "Space") {
+            event.preventDefault(); // Cegah halaman scroll ke bawah
+            lompat();
+        }
+    });
+    gameBoard.addEventListener("mousedown", lompat);
+    gameBoard.addEventListener("touchstart", function(e){ e.preventDefault(); lompat(); });
 }
 
+// ==========================================
+// 15. KONTROL MENU HAMBURGER (MOBILE VIEW)
+// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    const hamburgerBtn = document.getElementById('hamburgerBtn'); const navLinks = document.getElementById('navLinks');
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const navLinks = document.getElementById('navLinks');
+
     if (hamburgerBtn && navLinks) {
-        hamburgerBtn.addEventListener('click', (e) => { e.stopPropagation(); navLinks.classList.toggle('show-menu'); });
-        document.addEventListener('click', (e) => { if (!navLinks.contains(e.target) && !hamburgerBtn.contains(e.target)) navLinks.classList.remove('show-menu'); });
+        // Toggle menu saat ikon hamburger diklik
+        hamburgerBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Mencegah klik bocor ke area lain
+            navLinks.classList.toggle('show-menu');
+        });
+
+        // Menutup menu jika user mengklik area kosong di luar menu
+        document.addEventListener('click', (e) => {
+            if (!navLinks.contains(e.target) && !hamburgerBtn.contains(e.target)) {
+                navLinks.classList.remove('show-menu');
+            }
+        });
     }
 });
