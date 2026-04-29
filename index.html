@@ -50,11 +50,12 @@
 
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <span class="control-label">Urutkan berdasarkan:</span>
-                <select id="sortSelect" class="sprout-select" onchange="renderPapanKanban()">
-                    <option value="default">Terbaru Ditambahkan</option>
-                    <option value="dueDate">Tenggat Waktu</option>
-                    <option value="category">Kategori</option>
-                </select>
+                <select id="sortSelect" onchange="renderPapanKanban()" class="sprout-select" style="padding: 6px 12px; border-radius: 6px;">
+    <option value="newest">Terbaru ditambahkan</option>
+    <option value="dueDateAsc">Tenggat waktu (Asc)</option>
+    <option value="dueDateDesc">Tenggat waktu (Desc)</option>
+    <option value="category">Kategori</option>
+</select>
                 <button onclick="bukaModalArsip()" style="background-color: transparent; color: #282828; border: 1px solid rgba(40,40,40,0.15); padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">Lihat Arsip</button>
                 <button onclick="window.location.href='report.html'" style="background-color: #CCFA59; color: #282828; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">Laporan Kinerja →</button>
             </div>
