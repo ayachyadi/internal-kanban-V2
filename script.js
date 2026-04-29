@@ -73,12 +73,46 @@ function inisialisasiDataRealtime() {
 
     onSnapshot(collection(db, "tugas"), (snapshot) => {
         dataTugas = [];
-        snapshot.forEach(doc => { dataTugas.push(doc.data()); });
+        
+        // --- MESIN RADAR TUGAS TERLAMBAT ---
+        const hariIni = new Date();
+        hariIni.setHours(0, 0, 0, 0);
+
+        snapshot.forEach(docSnap => { 
+            let t = docSnap.data();
+            dataTugas.push(t); 
+
+            // Cek jika kartu ini terlambat DAN alarm belum pernah berbunyi
+            if (t.tenggat && (t.status === 'todo' || t.status === 'doing') && !t.isOverdueNotified) {
+                const batasWaktu = new Date(t.tenggat);
+                if (batasWaktu < hariIni) {
+                    
+                    // 1. Matikan alarm agar tidak spam (Update DB)
+                    updateDoc(doc(db, "tugas", t.id), { isOverdueNotified: true });
+                    
+                    // 2. Tembakkan notifikasi ke semua PIC yang di-tag
+                    let pics = Array.isArray(t.pic) ? t.pic : (typeof t.pic === 'string' ? t.pic.split(',').map(s=>s.trim()) : []);
+                    pics.forEach(namaPekerja => {
+                        kirimNotifikasi(namaPekerja, null, `🚨 <strong>Peringatan!</strong> Tugas <em>${t.judul}</em> telah melewati batas waktu (${t.tenggat}).`);
+                    });
+                }
+            }
+        });
+        
         if (document.getElementById("list-todo")) renderPapanKanban();
         if (document.getElementById("categoryChart")) renderLaporan();
+        if (document.getElementById("myTasksList") && typeof renderTugasSaya === "function") renderTugasSaya();
+        
         if (modeEditId && document.getElementById("cardModal")?.style.display === "flex") {
             let tugasAktif = dataTugas.find(t => t.id === modeEditId);
             if(tugasAktif) renderKomentar(tugasAktif.komentar || []);
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const tugasBukaId = urlParams.get('buka');
+        if (tugasBukaId && document.getElementById("cardModal") && typeof bukaModalEdit === "function") {
+            bukaModalEdit(tugasBukaId);
+            window.history.replaceState(null, '', window.location.pathname);
         }
     });
 
@@ -408,18 +442,35 @@ window.simpanTugas = async function(event) {
     if (sisaKetikanPic !== "" && !currentSelectedPics.includes(sisaKetikanPic)) currentSelectedPics.push(sisaKetikanPic);
 
     if (modeEditId) {
-        let isDiPapan = dataTugas.some(t => t.id === modeEditId);
+        let isDiPapan = dataTugas.some(t => t.id === modeEditId); 
         let targetKoleksi = isDiPapan ? "tugas" : "arsip_tugas";
         let tugasAktif = dataTugas.find(t => t.id === modeEditId) || dataArsip.find(t => t.id === modeEditId);
+        
         if(tugasAktif) {
             let newStatus = tugasAktif.status;
             if(isDone && (tugasAktif.status === 'todo' || tugasAktif.status === 'doing')) newStatus = 'review';
             
             let picLama = Array.isArray(tugasAktif.pic) ? tugasAktif.pic : (typeof tugasAktif.pic === 'string' ? tugasAktif.pic.split(',').map(s=>s.trim()) : []);
             let picBaru = currentSelectedPics.filter(p => !picLama.includes(p));
-            picBaru.forEach(namaPekerja => { kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menambahkan Anda sebagai PIC di tugas: <em>${judul}</em>`); });
+            
+            picBaru.forEach(namaPekerja => { 
+                kirimNotifikasi(namaPekerja, null, `<strong>${dataProfilUser.nama}</strong> menambahkan Anda sebagai PIC di tugas: <em>${judul}</em>`); 
+            });
+            
             pindaiDanKirimNotifMention(deskripsiRichText, judul);
-            await updateDoc(doc(db, targetKoleksi, modeEditId), { judul: judul, kategori: kategori, tenggat: tenggat, pic: [...currentSelectedPics], deskripsi: deskripsiRichText, isDone: isDone, status: newStatus });
+            
+            // SIMPAN DATA DAN RESET ALARM (isOverdueNotified: false)
+            await updateDoc(doc(db, targetKoleksi, modeEditId), { 
+                judul: judul, 
+                kategori: kategori, 
+                tenggat: tenggat, 
+                pic: [...currentSelectedPics], 
+                deskripsi: deskripsiRichText, 
+                isDone: isDone, 
+                status: newStatus,
+                isOverdueNotified: false // <--- INI PENTING UNTUK MERESET ALARM
+            });
+            
             catatLog("Mengedit kartu", judul);
         }
     } else {
