@@ -1589,3 +1589,10 @@ body {
 #searchInput::placeholder {
     color: rgba(40,40,40,0.4);
 }
+
+/* FIX: Memaksa link di dalam deskripsi agar bisa diklik dan kursornya berubah */
+#inputDesc a, .rich-text-content a {
+    cursor: pointer !important;
+    color: #1a73e8 !important;
+    text-decoration: underline !important;
+}
