@@ -24,7 +24,9 @@ const db = getFirestore(app);
 let currentUserEmail = "Anonim";
 let dataTugas = [], dataArsip = [], dataLog = [], dataNotifikasi = [];
 let daftarKategoriGlobal = ["Desain", "Engineering", "Marketing", "Lainnya"];
-let semuaProfilMap = {}, dataProfilUser = { role: 'admin' }, currentSelectedPics = [];
+let semuaProfilMap = {}, dataProfilUser = { role: 'admin' };
+let currentSelectedPics = [];
+let currentTaskList = []; // Variabel penampung Task List
 let modeEditId = null, kolomTarget = null, aktifMentionTarget = null;
 
 // ==========================================
@@ -80,10 +82,9 @@ window.inisialisasiDataRealtime = function() {
 
         snapshot.forEach(docSnap => { 
             let t = docSnap.data();
-            t.id = docSnap.id; // Keamanan agar t.id tidak pernah kosong
+            t.id = docSnap.id; 
             dataTugas.push(t); 
 
-            // Cek jika kartu ini terlambat DAN alarm belum pernah berbunyi
             if (t.tenggat && (t.status === 'todo' || t.status === 'doing') && !t.isOverdueNotified) {
                 const batasWaktu = new Date(t.tenggat);
                 if (batasWaktu < hariIni) {
@@ -299,6 +300,16 @@ window.renderPapanKanban = function() {
             const overdueBadge = isOverdue ? `<span style="color: #E23B3B; font-weight: 700; font-size: 10px; background: rgba(226,59,59,0.1); padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Terlambat</span>` : '';
             const dateColor = isOverdue ? "color: #E23B3B; font-weight: 700;" : "color: inherit;";
 
+            // TAMPILAN PROGRES TASK LIST DI KARTU
+            let taskProgressHTML = '';
+            if (t.taskList && t.taskList.length > 0) {
+                let doneCount = t.taskList.filter(sub => sub.isCompleted).length;
+                let totalCount = t.taskList.length;
+                let colorProgress = doneCount === totalCount ? '#282828' : 'gray';
+                let bgProgress = doneCount === totalCount ? '#CCFA59' : 'transparent';
+                taskProgressHTML = `<span style="font-size: 10px; font-weight: bold; color: ${colorProgress}; background: ${bgProgress}; border: 1px solid rgba(40,40,40,0.15); padding: 2px 6px; border-radius: 4px; margin-left: 8px;">☑ ${doneCount}/${totalCount}</span>`;
+            }
+
             list.innerHTML += `
                 <div class="card" ${dragAttr} onclick="bukaModalEdit('${t.id}')" id="${t.id}" style="${borderStyle}">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -310,7 +321,7 @@ window.renderPapanKanban = function() {
                         </button>
                     </div>
                     <h4>${t.judul}</h4>
-                    <p>${pic} • <span style="${dateColor}">${t.tenggat || "-"}</span> ${overdueBadge}</p>
+                    <p style="display:flex; align-items:center;">${pic} • <span style="margin-left:4px; ${dateColor}">${t.tenggat || "-"}</span> ${overdueBadge} ${taskProgressHTML}</p>
                     
                     <div style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed rgba(40,40,40,0.1); font-size: 10px; color: rgba(40,40,40,0.5); display: flex; justify-content: space-between;">
                         <span>Oleh: <strong>${t.createdBy || 'Sistem'}</strong></span>
@@ -323,20 +334,91 @@ window.renderPapanKanban = function() {
 
 window.allowDrop = function(ev) { if (dataProfilUser.role !== 'viewer') ev.preventDefault(); }
 window.drag = function(ev) { if (dataProfilUser.role !== 'viewer') ev.dataTransfer.setData("text", ev.target.id); }
+
 window.drop = async function(ev, targetStatus) {
     if (dataProfilUser.role === 'viewer') return; 
     ev.preventDefault();
     var idKartu = ev.dataTransfer.getData("text");
     let tugasPilihan = dataTugas.find(t => t.id === idKartu);
+    
     if (tugasPilihan && tugasPilihan.status !== targetStatus) {
         let isDone = (targetStatus === 'review' || targetStatus === 'done');
+        
+        // --- VALIDASI TASK LIST SAAT DRAG & DROP ---
+        if (isDone && tugasPilihan.taskList && tugasPilihan.taskList.length > 0) {
+            const isAllDone = tugasPilihan.taskList.every(task => task.isCompleted);
+            if (!isAllDone) {
+                alert(`Gagal dipindahkan! Anda harus mencentang semua Task List di kartu "${tugasPilihan.judul}" terlebih dahulu sebelum memindahkannya ke kolom Selesai/Review.`);
+                return; // Batalkan perpindahan kartu
+            }
+        }
+
         await updateDoc(doc(db, "tugas", idKartu), { status: targetStatus, isDone: isDone });
         catatLog("Memindahkan kartu ke kolom " + targetStatus.toUpperCase(), tugasPilihan.judul);
     }
 }
 
 // ==========================================
-// 7. MODAL EDIT/TAMBAH TUGAS (DENGAN CREATED_BY)
+// 7. TASK LIST (SUB-TUGAS) LOGIC
+// ==========================================
+window.renderTaskList = function() {
+    const container = document.getElementById("subTaskList");
+    if (!container) return;
+    container.innerHTML = "";
+    
+    let role = dataProfilUser.role || 'admin';
+    const isViewer = role === 'viewer';
+
+    if (currentTaskList.length === 0) {
+        container.innerHTML = `<span style="font-size: 12px; color: gray; font-style: italic;">Belum ada task list.</span>`;
+        return;
+    }
+
+    currentTaskList.forEach((task, index) => {
+        let checkedAttr = task.isCompleted ? 'checked' : '';
+        let textDecor = task.isCompleted ? 'text-decoration: line-through; color: gray;' : 'color: #282828;';
+        
+        // Disable interaksi jika dia viewer
+        let disabledAttr = isViewer ? 'disabled' : '';
+        let hapusBtn = isViewer ? '' : `<button type="button" onclick="hapusSubTask(${index})" style="background: none; border: none; color: #E23B3B; cursor: pointer; font-size: 16px;">&times;</button>`;
+
+        container.innerHTML += `
+            <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(40,40,40,0.1);">
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                    <input type="checkbox" onchange="toggleSubTask(${index})" ${checkedAttr} ${disabledAttr} style="cursor: pointer; width: 16px; height: 16px;">
+                    <span style="font-size: 13px; font-weight: 500; ${textDecor}">${task.text}</span>
+                </div>
+                ${hapusBtn}
+            </div>
+        `;
+    });
+}
+
+window.tambahSubTask = function() {
+    if (dataProfilUser.role === 'viewer') return;
+    const input = document.getElementById("inputSubTask");
+    const val = input.value.trim();
+    if (val !== "") {
+        currentTaskList.push({ text: val, isCompleted: false });
+        input.value = "";
+        renderTaskList();
+    }
+}
+
+window.toggleSubTask = function(index) {
+    if (dataProfilUser.role === 'viewer') return;
+    currentTaskList[index].isCompleted = !currentTaskList[index].isCompleted;
+    renderTaskList();
+}
+
+window.hapusSubTask = function(index) {
+    if (dataProfilUser.role === 'viewer') return;
+    currentTaskList.splice(index, 1);
+    renderTaskList();
+}
+
+// ==========================================
+// 8. MODAL EDIT/TAMBAH TUGAS (DENGAN CREATED_BY)
 // ==========================================
 window.formatText = function(command) { document.execCommand(command, false, null); document.getElementById("inputDesc").focus(); }
 window.tambahLink = function() { const url = prompt("Masukkan URL:"); if (url) document.execCommand("createLink", false, url); }
@@ -348,6 +430,13 @@ function aturKunciForm(kunci) {
     document.getElementById("inputPerson").disabled = kunci;
     document.getElementById("inputDoneCheck").disabled = kunci;
     document.getElementById("inputDesc").contentEditable = !kunci;
+    
+    // Kunci juga input task list
+    const inputSubTask = document.getElementById("inputSubTask");
+    if(inputSubTask) inputSubTask.disabled = kunci;
+    const addTaskBtn = document.getElementById("addTaskContainer");
+    if(addTaskBtn) addTaskBtn.style.display = kunci ? 'none' : 'flex';
+
     const toolbars = document.querySelectorAll('.rich-text-toolbar'); toolbars.forEach(el => el.style.display = kunci ? 'none' : 'flex');
     const formActions = document.querySelector('.form-actions'); if(formActions) formActions.style.display = kunci ? 'none' : 'flex';
 }
@@ -363,6 +452,7 @@ window.bukaModalTambah = function(statusKolom) {
     document.getElementById("btnDelete").style.display = "none";
     document.getElementById("inputDoneCheck").checked = false;
     currentSelectedPics = []; renderPicTags();
+    currentTaskList = []; renderTaskList(); // Reset Task List
     aturKunciForm(false);
     modal.style.display = "flex";
 }
@@ -385,6 +475,10 @@ window.bukaModalEdit = function(id) {
         else currentSelectedPics = [];
         renderPicTags();
         
+        // Load Task List dari Database
+        currentTaskList = tugas.taskList ? [...tugas.taskList] : [];
+        renderTaskList();
+        
         document.getElementById("commentSection").style.display = "block";
         renderKomentar(tugas.komentar || []);
         aturKunciForm(role === 'viewer');
@@ -397,15 +491,42 @@ window.bukaModalEdit = function(id) {
 }
 window.tutupModal = function() { const modal = document.getElementById("cardModal"); if(modal) modal.style.display = "none"; }
 
+// Pencegah klik Done Checkbox jika Task List belum beres
+document.addEventListener("DOMContentLoaded", () => {
+    const doneCheck = document.getElementById("inputDoneCheck");
+    if (doneCheck) {
+        doneCheck.addEventListener('change', function() {
+            if (this.checked && currentTaskList.length > 0) {
+                const isAllDone = currentTaskList.every(task => task.isCompleted);
+                if (!isAllDone) {
+                    alert("⚠️ Gagal: Anda harus mencentang semua Task List terlebih dahulu sebelum menandai tugas ini selesai!");
+                    this.checked = false; // Batalkan centang
+                }
+            }
+        });
+    }
+});
+
 window.simpanTugas = async function(event) {
     event.preventDefault(); 
     if (dataProfilUser.role === 'viewer') return;
+
+    const isDone = document.getElementById("inputDoneCheck").checked;
+    
+    // --- VALIDASI KEAMANAN SAAT TOMBOL SIMPAN DITEKAN ---
+    if (isDone && currentTaskList.length > 0) {
+        const isAllDone = currentTaskList.every(task => task.isCompleted);
+        if (!isAllDone) {
+            alert("⚠️ Sistem Menolak: Masih ada Task List yang belum diselesaikan. Harap centang semua sub-tugas atau hapus centang 'Tandai Selesai'.");
+            return; // Hentikan proses simpan total
+        }
+    }
 
     const judul = document.getElementById("inputTitle").value; 
     const kategori = document.getElementById("inputCategory").value;
     const tenggat = document.getElementById("inputDue").value; 
     const deskripsiRichText = document.getElementById("inputDesc").innerHTML; 
-    const isDone = document.getElementById("inputDoneCheck").checked;
+    
     const sisaKetikanPic = document.getElementById("inputPerson").value.trim();
     if (sisaKetikanPic !== "" && !currentSelectedPics.includes(sisaKetikanPic)) currentSelectedPics.push(sisaKetikanPic);
 
@@ -429,10 +550,11 @@ window.simpanTugas = async function(event) {
                 kategori: kategori, 
                 tenggat: tenggat, 
                 pic: [...currentSelectedPics], 
+                taskList: [...currentTaskList], // SIMPAN TASK LIST KE DB
                 deskripsi: deskripsiRichText, 
                 isDone: isDone, 
                 status: newStatus,
-                isOverdueNotified: false // RESET ALARM JIKA DIEDIT
+                isOverdueNotified: false 
             });
             catatLog("Mengedit kartu", judul);
         }
@@ -451,6 +573,7 @@ window.simpanTugas = async function(event) {
             kategori: kategori, 
             tenggat: tenggat, 
             pic: [...currentSelectedPics], 
+            taskList: [...currentTaskList], // SIMPAN TASK LIST KE DB
             deskripsi: deskripsiRichText, 
             isDone: isDone, 
             komentar: [],
@@ -477,7 +600,7 @@ window.hapusTugas = async function() {
 }
 
 // ==========================================
-// 8. KOMENTAR
+// 9. KOMENTAR
 // ==========================================
 window.renderKomentar = function(komentarArray) {
     const list = document.getElementById("commentsList"); if (!list) return; list.innerHTML = "";
@@ -525,7 +648,7 @@ window.simpanBalasan = async function(targetEmail, index) {
 }
 
 // ==========================================
-// 9. ARSIP TUGAS
+// 10. ARSIP TUGAS
 // ==========================================
 window.arsipTugasSatuan = async function(id) {
     if (dataProfilUser.role === 'viewer') return;
@@ -569,7 +692,7 @@ window.hapusPermanenTugas = async function(id) {
 }
 
 // ==========================================
-// 10. HALAMAN PROFIL & MANAJEMEN TIM
+// 11. HALAMAN PROFIL & MANAJEMEN TIM
 // ==========================================
 window.renderHalamanProfil = function() {
     document.getElementById("inputEmailProfil").value = currentUserEmail;
@@ -662,7 +785,7 @@ window.gantiAvatar = function(event) {
 }
 
 // ==========================================
-// 11. PENGATURAN KATEGORI & PIC TAGS
+// 12. PENGATURAN KATEGORI & PIC TAGS
 // ==========================================
 window.renderPengaturanKategori = function() {
     const container = document.getElementById("listKategoriPengaturan"); if(!container) return; container.innerHTML = "";
@@ -725,7 +848,7 @@ function setupAutocompletePIC() {
 setupAutocompletePIC();
 
 // ==========================================
-// 12. LOG HISTORI & LAPORAN
+// 13. LOG HISTORI & LAPORAN
 // ==========================================
 window.renderTabelLog = function() {
     const tbody = document.getElementById("logTableBody"); if (!tbody) return; tbody.innerHTML = "";
@@ -799,7 +922,7 @@ window.downloadReportHTML = function() {
 }
 
 // ==========================================
-// 13. TUGAS SAYA (PROFIL)
+// 14. TUGAS SAYA (PROFIL)
 // ==========================================
 window.renderTugasSaya = function() {
     const container = document.getElementById("myTasksList"); if (!container) return;
@@ -837,7 +960,7 @@ window.renderTugasSaya = function() {
 }
 
 // ==========================================
-// 14. MINI GAME & MOBILE MENU
+// 15. MINI GAME & MOBILE MENU
 // ==========================================
 const gameBoard = document.getElementById("gameBoard");
 if (gameBoard) { 
