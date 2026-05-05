@@ -999,3 +999,32 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('click', (e) => { if (!navLinks.contains(e.target) && !hamburgerBtn.contains(e.target)) navLinks.classList.remove('show-menu'); });
     }
 });
+
+// ==========================================
+// 16. FITUR SHARE LINK (DEEP-LINKING)
+// ==========================================
+window.bagikanTugas = function() {
+    if (!modeEditId) {
+        alert("Simpan tugas ini terlebih dahulu sebelum membagikannya.");
+        return;
+    }
+    
+    // Mengambil URL website Anda saat ini dan membersihkan parameter lama
+    let baseUrl = window.location.href.split('?')[0]; 
+    
+    // Jika sedang di halaman profil, paksa link untuk membuka index.html (Papan Kanban)
+    if (baseUrl.includes('profile.html')) {
+        baseUrl = baseUrl.replace('profile.html', 'index.html');
+    }
+    
+    // Rakit URL khusus untuk kartu ini
+    const shareUrl = baseUrl + "?buka=" + modeEditId;
+    
+    // Perintah untuk menyalin ke clipboard (Copy)
+    navigator.clipboard.writeText(shareUrl).then(() => {
+        alert("🔗 Tautan tugas berhasil disalin!\nSilakan Paste (Ctrl+V) ke WhatsApp atau Email tim Anda.");
+    }).catch(err => {
+        // Rencana B jika browser memblokir copy otomatis
+        prompt("Silakan Copy tautan di bawah ini secara manual:", shareUrl);
+    });
+}
